@@ -1,29 +1,23 @@
 # ==============================================================================
-# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓全局悬浮伴侣版 · v6 终极精修版自动打包配置
+# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓全局悬浮伴侣版 · v7 自定义贴图与精准状态版
 # ==============================================================================
-# ✨ v6 针对实机体验的 4 大核心修复与升级：
-# 1. 【QQ 企鹅级小巧尺寸 + 贴图真缩放 + 双窗体零遮挡 + 原生 120帧丝滑拖拽】：
-#    - 默认大小缩小为 56dp（与 QQ 右上角小企鹅完全一致，支持 32dp ~ 150dp 自由无级调节）。
-#    - 修复贴图不随滑条缩放的问题：Canvas 与原版贴图 100% 实时跟随窗口像素等比缩放。
-#    - 彻底消除周围透明遮挡区：将「大肥鱼本体」与「对话气泡面板」拆分为两个独立的原生悬浮窗！
-#      待机半探头时，窗口物理尺寸仅有 32dp×56dp（仅包裹露出的半个脑袋），其余屏幕区域 100% 零遮挡；
-#      气泡与按钮窗口平时完全隐藏（View.GONE，0×0 像素），仅在点击唤醒或说话时才在旁边浮现。
-#    - 丝滑拖动：改用 Android 原生 View.OnTouchListener 硬件级坐标跟随，指哪打哪，绝无卡顿与偏移。
-# 2. 【修复等待回复时自动收起的问题】：
-#    - 在语音识别中、等待 AI 思考中、流式输出文字期间，严格锁定窗口为展开状态（附带实时耗时读秒），绝不自动收起。
-#    - 回复完成后气泡至少保持显示 25 秒（或点击气泡手动收起），并在输入框上方保留最近一条回复记录。
-# 3. 【SillyTavern（酒馆）风格预设编辑器 + 0.5 秒极速秒回（关闭思考链）】：
-#    - 内置酒馆式模块化预设编辑器：支持切换/导入/导出预设，包含独立开关的「主系统指令」「角色卡 {{char}}」
-#      「用户人设 {{user}}」「手机状态世界书 {{battery}}/{{weather}}/{{song}}」「尾置强约束 Post-History」。
-#    - 新增「思考预算 (Thinking Budget)」开关：默认设为 0（关闭 Gemini / DeepSeek 漫长的内部思维链），
-#      并将天气查询改为后台异步缓存，不再阻塞对话请求，实现 0.5 秒极速秒回！
-# 4. 【精准识别 Salt Player（椒盐音乐 com.salt.music）与全局播放器】：
-#    - 升级为 KLWP 同款三通道媒体识别引擎：原生调用 MediaSessionManager.getActiveSessions() 读取
-#      MediaMetadata（歌名/歌手/专辑）+ 解析 Notification.EXTRA_MEDIA_SESSION Token + 监听
-#      com.android.music.metachanged 广播，针对 com.salt.music 专项适配并实时注册切歌回调。
+# ✨ v7 针对实机反馈的 4 项专项修复与升级：
+# 1. 【思考/生成时点击 ✕ 立即中断生成 (AbortController)】：
+#    - 思考或流式输出期间，右侧按钮自动变为醒目的「✕ 停止」，点击瞬间调用 AbortController.abort()
+#      切断网络流、停止读秒并保留已生成内容；再点一次 ✕ 则收起面板。
+# 2. 【新增充电到 80% 与用电到 40% 实时探头提醒】：
+#    - 监听原生 ACTION_BATTERY_CHANGED 广播：充电达到 80% 时自动探头提醒养护电池；
+#      日常放电用到 40%（以及 20%）时自动探头提醒留意电量，带防重复触发状态锁。
+# 3. 【彻底修复闹钟始终显示 00:00 的 Bug】：
+#    - 原因：vivo/小米等系统后台计步器（如 vivo 健康）会注册午夜 00:00 的伪 AlarmClock 唤醒。
+#    - 修复：优先读取系统时钟写入的 NEXT_ALARM_FORMATTED，并对 getNextAlarmClock() 校验创建者包名
+#      （仅采纳系统时钟 com.android.BBKClock / deskclock / alarm 等真实闹钟，剔除 00:00 计步器伪闹钟）。
+# 4. 【支持自定义角色贴图（从手机相册自由更换任意角色 PNG / GIF 动图 / WebP）】：
+#    - 在主控制台新增「🖼️ 从相册更换角色贴图」与「🗣️ 更换说话张嘴差分贴图（可选）」，
+#      支持静态透明 PNG（自动赋予呼吸与跳跃动画）和 GIF/WebP 动图，并可随时一键恢复默认大肥鱼。
 # ==============================================================================
 
-name: Build DeepSeek Whale Android APK v6
+name: Build DeepSeek Whale Android APK v7
 
 on:
   push:
@@ -87,7 +81,7 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
 
-      - name: 5. 生成 v6 安卓工程（双悬浮窗零遮挡 + 原生丝滑拖拽 + 酒馆预设 + Salt Player 精准识曲）
+      - name: 5. 生成 v7 安卓工程（停止生成 + 80%/40%电量提醒 + 真实闹钟过滤 + 自定义角色贴图）
         run: |
           python3 - << 'PY'
           import os, textwrap
@@ -102,7 +96,7 @@ jobs:
 
           # 1. Gradle 配置
           with open(os.path.join(base, 'settings.gradle'), 'w', encoding='utf-8') as f:
-              f.write("rootProject.name = 'WhaleCompanionV6'\ninclude ':app'\n")
+              f.write("rootProject.name = 'WhaleCompanionV7'\ninclude ':app'\n")
 
           with open(os.path.join(base, 'build.gradle'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
@@ -138,8 +132,8 @@ jobs:
                       applicationId "com.takboo.whalecompanion"
                       minSdk 29
                       targetSdk 34
-                      versionCode 6
-                      versionName "6.0.0-tavern-mini-overlay"
+                      versionCode 7
+                      versionName "7.0.0-custom-sprite-alarm-fix"
                   }
                   buildTypes {
                       debug {
@@ -161,7 +155,7 @@ jobs:
               }
               """).lstrip())
 
-          # 2. AndroidManifest.xml (增加 queries 声明以便 Android 11+ 可见 com.salt.music 等播放器包名)
+          # 2. AndroidManifest.xml
           with open(os.path.join(base, 'app/src/main/AndroidManifest.xml'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <?xml version="1.0" encoding="utf-8"?>
@@ -180,6 +174,9 @@ jobs:
                       <package android:name="com.salt.music" />
                       <intent>
                           <action android:name="android.media.browse.MediaBrowserService" />
+                      </intent>
+                      <intent>
+                          <action android:name="android.intent.action.SHOW_ALARMS" />
                       </intent>
                   </queries>
 
@@ -229,7 +226,7 @@ jobs:
               </manifest>
               """).lstrip())
 
-          # 3. WhaleNotificationListener.java (KLWP 级三通道音乐识别：MediaSessionManager + Token 解析 + 标准音乐广播，专项支持 com.salt.music 椒盐音乐)
+          # 3. WhaleNotificationListener.java (保持 Salt Player 椒盐音乐与全局媒体会话三通道识曲)
           with open(os.path.join(java_dir, 'WhaleNotificationListener.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
@@ -364,7 +361,6 @@ jobs:
                                   artist = meta.getString(MediaMetadata.METADATA_KEY_ALBUM);
                               }
                               if (title != null && !title.trim().isEmpty()) {
-                                  // 优先采纳正在播放的会话或 Salt Player (com.salt.music)
                                   if (isPlaying || pkg.contains("com.salt.music") || currentSongTitle.isEmpty()) {
                                       updateSongState(title.trim(), artist != null ? artist.trim() : "", pkg);
                                       return true;
@@ -405,7 +401,6 @@ jobs:
 
                   public void refreshActiveNotifications() {
                       try {
-                          // 1. 先通过 MediaSessionManager 扫描所有活跃播放器（Salt Player 首选通道）
                           if (mediaSessionManager != null) {
                               ComponentName cn = new ComponentName(this, WhaleNotificationListener.class);
                               List<MediaController> activeList = mediaSessionManager.getActiveSessions(cn);
@@ -416,7 +411,6 @@ jobs:
                               }
                           }
 
-                          // 2. 扫描状态栏通知（解析 MediaSession.Token + Salt Player 包名 + 短信/电话/社交）
                           StatusBarNotification[] list = getActiveNotifications();
                           if (list == null) return;
                           int missed = 0;
@@ -436,7 +430,6 @@ jobs:
                               String subText = extras != null && extras.getCharSequence(Notification.EXTRA_SUB_TEXT) != null
                                       ? extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString().trim() : "";
 
-                              // 检查是否携带 MediaSession.Token 或属于 com.salt.music (椒盐音乐) 等播放器
                               boolean isMusicPkg = pkg.contains("com.salt.music") || pkg.contains("salt")
                                       || pkg.contains("music") || pkg.contains("spotify")
                                       || pkg.contains("netease") || pkg.contains("kugou")
@@ -448,7 +441,7 @@ jobs:
                                   try {
                                       MediaSession.Token token = extras.getParcelable(Notification.EXTRA_MEDIA_SESSION);
                                       if (token != null) {
-                                          MediaController mc = new MediaController(this, token);
+           	                              MediaController mc = new MediaController(this, token);
                                           if (readFromMediaController(mc)) continue;
                                       }
                                   } catch (Exception ignored) {}
@@ -475,13 +468,14 @@ jobs:
               }
               """).lstrip())
 
-          # 4. DeviceContextHelper.java
+          # 4. DeviceContextHelper.java (核心修复 #3：彻底解决 vivo/国产系统后台计步器伪造 00:00 闹钟的问题)
           with open(os.path.join(java_dir, 'DeviceContextHelper.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
 
               import android.Manifest;
               import android.app.AlarmManager;
+              import android.app.PendingIntent;
               import android.content.Context;
               import android.content.Intent;
               import android.content.IntentFilter;
@@ -489,14 +483,81 @@ jobs:
               import android.location.Location;
               import android.location.LocationManager;
               import android.os.BatteryManager;
+              import android.provider.Settings;
               import androidx.core.content.ContextCompat;
               import org.json.JSONObject;
               import java.text.SimpleDateFormat;
+              import java.util.Calendar;
               import java.util.Date;
               import java.util.List;
               import java.util.Locale;
 
               public class DeviceContextHelper {
+
+                  // 精准获取真实用户闹钟（过滤 vivo 健康、微信计步器等注册的午夜 00:00 伪闹钟）
+                  public static String resolveRealNextAlarm(Context ctx) {
+                      try {
+                          // 通道 A：先读系统时钟写入的 NEXT_ALARM_FORMATTED（vivo BBKClock / 原生 DeskClock 标准字段）
+                          String sysFormatted = Settings.System.getString(ctx.getContentResolver(), Settings.System.NEXT_ALARM_FORMATTED);
+                          if (sysFormatted != null) {
+                              sysFormatted = sysFormatted.trim();
+                              if (!sysFormatted.isEmpty() && !sysFormatted.endsWith("00:00") && !sysFormatted.equals("0:00")) {
+                                  return sysFormatted;
+                              }
+                          }
+                          String globalFormatted = Settings.Global.getString(ctx.getContentResolver(), "next_alarm_formatted");
+                          if (globalFormatted != null) {
+                              globalFormatted = globalFormatted.trim();
+                              if (!globalFormatted.isEmpty() && !globalFormatted.endsWith("00:00") && !globalFormatted.equals("0:00")) {
+                                  return globalFormatted;
+                              }
+                          }
+
+                          // 通道 B：检查 AlarmManager.getNextAlarmClock() 并校验创建者包名与时间特征
+                          AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+                          if (am != null && am.getNextAlarmClock() != null) {
+                              AlarmManager.AlarmClockInfo info = am.getNextAlarmClock();
+                              long triggerMs = info.getTriggerTime();
+                              PendingIntent pi = info.getShowIntent();
+                              String creatorPkg = (pi != null && pi.getCreatorPackage() != null)
+                                      ? pi.getCreatorPackage().toLowerCase() : "";
+
+                              Calendar cal = Calendar.getInstance();
+                              cal.setTimeInMillis(triggerMs);
+                              int hour = cal.get(Calendar.HOUR_OF_DAY);
+                              int minute = cal.get(Calendar.MINUTE);
+                              int second = cal.get(Calendar.SECOND);
+
+                              // 判断是否来自真正的系统时钟/闹钟 App（如 vivo 的 com.android.bbkclock、原生 deskclock 等）
+                              boolean isRealClockApp = creatorPkg.contains("clock")
+                                      || creatorPkg.contains("alarm")
+                                      || creatorPkg.contains("bbk")
+                                      || creatorPkg.contains("time")
+                                      || creatorPkg.contains("calendar");
+
+                              // 判断是否是健康/计步/社交后台注册的午夜 00:00 定时任务
+                              boolean isFakeMidnightReset = (hour == 0 && minute == 0) && (!isRealClockApp || second != 0);
+
+                              if (!isFakeMidnightReset && (isRealClockApp || !(hour == 0 && minute == 0))) {
+                                  SimpleDateFormat alarmFmt = new SimpleDateFormat("EEE HH:mm", Locale.CHINA);
+                                  return alarmFmt.format(new Date(triggerMs));
+                              }
+                          }
+
+                          // 如果用户在时钟里确实设置了一个整点 00:00 的真实闹钟且 NEXT_ALARM_FORMATTED 有值
+                          if (sysFormatted != null && !sysFormatted.isEmpty()) {
+                              AlarmManager am2 = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+                              if (am2 != null && am2.getNextAlarmClock() != null && am2.getNextAlarmClock().getShowIntent() != null) {
+                                  String pkg = am2.getNextAlarmClock().getShowIntent().getCreatorPackage();
+                                  if (pkg != null && (pkg.toLowerCase().contains("clock") || pkg.toLowerCase().contains("alarm"))) {
+                                      return sysFormatted;
+                                  }
+                              }
+                          }
+                      } catch (Exception ignored) {}
+                      return "未设置";
+                  }
+
                   public static String getDeviceStatusJson(Context ctx) {
                       JSONObject obj = new JSONObject();
                       try {
@@ -517,14 +578,7 @@ jobs:
                               obj.put("batteryTempC", tempTenths / 10.0);
                           }
 
-                          AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
-                          if (am != null && am.getNextAlarmClock() != null) {
-                              long triggerTime = am.getNextAlarmClock().getTriggerTime();
-                              SimpleDateFormat alarmFmt = new SimpleDateFormat("EEE HH:mm", Locale.CHINA);
-                              obj.put("nextAlarm", alarmFmt.format(new Date(triggerTime)));
-                          } else {
-                              obj.put("nextAlarm", "未设置");
-                          }
+                          obj.put("nextAlarm", resolveRealNextAlarm(ctx));
 
                           obj.put("notificationAccess", WhaleNotificationListener.isConnected);
                           obj.put("missedCalls", WhaleNotificationListener.missedCallCount);
@@ -769,7 +823,7 @@ jobs:
               }
               """).lstrip())
 
-          # 6. FloatingOverlayService.java (v6 核心架构：拆分为「纯桌宠悬浮球窗口 petWebView」与「独立气泡面板窗口 panelWebView」，原生 Touch 拖拽零延迟，待机零多余透明区！)
+          # 6. FloatingOverlayService.java (新增 ACTION_BATTERY_CHANGED 实时检测充电到 80% 与放电到 40% 自动探头提醒 + 支持自定义贴图读取)
           with open(os.path.join(java_dir, 'FloatingOverlayService.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
@@ -787,6 +841,7 @@ jobs:
               import android.content.SharedPreferences;
               import android.graphics.Color;
               import android.graphics.PixelFormat;
+              import android.os.BatteryManager;
               import android.os.Build;
               import android.os.Bundle;
               import android.os.IBinder;
@@ -808,19 +863,18 @@ jobs:
               import android.webkit.WebViewClient;
               import androidx.core.app.NotificationCompat;
               import androidx.webkit.WebViewAssetLoader;
+              import java.io.File;
+              import java.io.FileInputStream;
               import java.util.ArrayList;
               import java.util.Locale;
 
               public class FloatingOverlayService extends Service {
                   public static FloatingOverlayService instance;
-                  private static final String CHANNEL_ID = "WhaleFloatingOverlayV6";
+                  private static final String CHANNEL_ID = "WhaleFloatingOverlayV7";
 
                   private WindowManager windowManager;
-                  // 窗口 1：纯粹的桌宠小图标窗口（默认 56dp，与 QQ 右上角小企鹅同尺寸，周围 0 透明边距！）
                   private WebView petWebView;
                   private WindowManager.LayoutParams petParams;
-
-                  // 窗口 2：独立的对话气泡 + 按钮小面板（平时 View.GONE 完全不存在，绝不挡屏幕）
                   private WebView panelWebView;
                   private WindowManager.LayoutParams panelParams;
 
@@ -829,11 +883,17 @@ jobs:
                   private int screenWidth = 1080;
                   private int screenHeight = 2400;
 
-                  private int petSizeDp = 58; // 默认 58dp（QQ 企鹅大小），可在 32dp ~ 150dp 自由调节
-                  private boolean isPeekMode = true; // true: 待机只露半个头 | false: 跳出站好
-                  private String dockEdge = "right"; // right | left | bottom（默认贴右侧，像 QQ 企鹅一样）
+                  private int petSizeDp = 58;
+                  private boolean isPeekMode = true;
+                  private String dockEdge = "right";
                   private int anchorX = 900;
                   private int anchorY = 600;
+
+                  // 充电到 80% 与用电到 40% 阈值提醒状态锁（避免同一周期重复刷屏）
+                  private boolean remindedCharge80 = false;
+                  private boolean remindedDrain40 = false;
+                  private boolean remindedDrain20 = false;
+                  private int lastObservedBatteryPct = -1;
 
                   private final BroadcastReceiver systemEventReceiver = new BroadcastReceiver() {
                       @Override
@@ -845,11 +905,49 @@ jobs:
                           } else if (Intent.ACTION_SCREEN_ON.equals(act)) {
                               evalPanelJs("window.onScreenStateChanged && window.onScreenStateChanged(true);");
                           } else if (Intent.ACTION_POWER_CONNECTED.equals(act)) {
+                              remindedDrain40 = false;
+                              remindedDrain20 = false;
                               notifyInstantEvent("power_connected", "哇！充上电啦⚡ 能量满格涌进来咯～");
                           } else if (Intent.ACTION_POWER_DISCONNECTED.equals(act)) {
+                              remindedCharge80 = false;
                               notifyInstantEvent("power_disconnected", "拔掉充电线啦，今天也要元气满满哦！");
-                          } else if (Intent.ACTION_BATTERY_LOW.equals(act)) {
-                              notifyInstantEvent("battery_low", "主人，手机电量快见底啦🪫 快充会儿电吧！");
+                          } else if (Intent.ACTION_BATTERY_CHANGED.equals(act)) {
+                              int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                              int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                              int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                              if (level < 0 || scale <= 0) return;
+                              int pct = Math.round((level * 100f) / scale);
+                              boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+
+                              if (isCharging) {
+                                  remindedDrain40 = false;
+                                  remindedDrain20 = false;
+                                  if (pct < 78) {
+                                      remindedCharge80 = false;
+                                  }
+                                  // 充电到达 80% 提醒（从低于80充到80，或插上充电器正好80%且尚未提醒）
+                                  if (pct >= 80 && !remindedCharge80 && (lastObservedBatteryPct < 80 || lastObservedBatteryPct == -1)) {
+                                      remindedCharge80 = true;
+                                      notifyInstantEvent("battery_charged_80", "主人！电量已经充到 " + pct + "% 啦🔋 达到 80% 黄金养护线咯～");
+                                  }
+                              } else {
+                                  remindedCharge80 = false;
+                                  if (pct > 42) {
+                                      remindedDrain40 = false;
+                                  }
+                                  if (pct > 22) {
+                                      remindedDrain20 = false;
+                                  }
+                                  // 用电降到 40% 提醒
+                                  if (pct <= 40 && pct > 20 && !remindedDrain40 && (lastObservedBatteryPct > 40 || lastObservedBatteryPct == -1)) {
+                                      remindedDrain40 = true;
+                                      notifyInstantEvent("battery_drain_40", "提醒主人～电量已经用到 " + pct + "% 啦⚡ 要留意剩余电量哦！");
+                                  } else if (pct <= 20 && !remindedDrain20 && (lastObservedBatteryPct > 20 || lastObservedBatteryPct == -1)) {
+                                      remindedDrain20 = true;
+                                      notifyInstantEvent("battery_low_20", "主人主人，电量只剩 " + pct + "% 啦🪫 快找充电器喂饱手机吧！");
+                                  }
+                              }
+                              lastObservedBatteryPct = pct;
                           }
                       }
                   };
@@ -866,7 +964,7 @@ jobs:
 
                       Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                               .setContentTitle("大肥鱼桌面悬浮球运行中")
-                              .setContentText("点击进入预设与尺寸控制台")
+                              .setContentText("点击进入预设、贴图与尺寸控制台")
                               .setSmallIcon(android.R.drawable.sym_def_app_icon)
                               .setContentIntent(pi)
                               .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -882,7 +980,7 @@ jobs:
                       filter.addAction(Intent.ACTION_SCREEN_ON);
                       filter.addAction(Intent.ACTION_POWER_CONNECTED);
                       filter.addAction(Intent.ACTION_POWER_DISCONNECTED);
-                      filter.addAction(Intent.ACTION_BATTERY_LOW);
+                      filter.addAction(Intent.ACTION_BATTERY_CHANGED);
                       registerReceiver(systemEventReceiver, filter);
 
                       initDualOverlayWindows();
@@ -890,6 +988,23 @@ jobs:
 
                   private int dp(int d) {
                       return Math.round(d * density);
+                  }
+
+                  // 支持从内部存储直接读取用户上传的自定义角色贴图 (custom_sprite_idle / custom_sprite_talk)
+                  public static WebResourceResponse interceptCustomSpriteRequest(Context ctx, WebResourceRequest request, WebViewAssetLoader assetLoader) {
+                      String path = request.getUrl().getPath();
+                      if (path != null && path.startsWith("/custom_sprites/")) {
+                          String fileName = path.replace("/custom_sprites/", "");
+                          File f = new File(ctx.getFilesDir(), fileName);
+                          if (f.exists()) {
+                              try {
+                                  SharedPreferences sp = ctx.getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
+                                  String mime = sp.getString("mime_" + fileName, "image/png");
+                                  return new WebResourceResponse(mime, "UTF-8", new FileInputStream(f));
+                              } catch (Exception ignored) {}
+                          }
+                      }
+                      return assetLoader.shouldInterceptRequest(request.getUrl());
                   }
 
                   @SuppressLint("ClickableViewAccessibility")
@@ -909,7 +1024,6 @@ jobs:
                               .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                               .build();
 
-                      // 1. 初始化纯桌宠悬浮球窗口 petWebView
                       petParams = new WindowManager.LayoutParams(
                               dp(petSizeDp),
                               dp(petSizeDp),
@@ -928,15 +1042,15 @@ jobs:
                       WebSettings ps = petWebView.getSettings();
                       ps.setJavaScriptEnabled(true);
                       ps.setDomStorageEnabled(true);
+                      ps.setCacheMode(WebSettings.LOAD_NO_CACHE);
                       petWebView.setWebViewClient(new WebViewClient() {
                           @Override
                           public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                              return assetLoader.shouldInterceptRequest(request.getUrl());
+                              return interceptCustomSpriteRequest(FloatingOverlayService.this, request, assetLoader);
                           }
                       });
                       petWebView.addJavascriptInterface(new SharedOverlayBridge(), "OverlayBridge");
 
-                      // 原生 120Hz 丝滑触摸拖拽与点击识别（彻底解决 WebView 内部拖拽卡顿和透明区遮挡！）
                       petWebView.setOnTouchListener(new View.OnTouchListener() {
                           private float downRawX, downRawY;
                           private int startWinX, startWinY;
@@ -972,10 +1086,8 @@ jobs:
                                   case MotionEvent.ACTION_UP:
                                   case MotionEvent.ACTION_CANCEL:
                                       if (!isDragging) {
-                                          // 轻点桌宠：如果在待机半探头，立即跳出来站好并弹出气泡面板！
                                           onPetClickedNatively();
                                       } else {
-                                          // 拖动松手：自动吸附到最近的左/右/下边缘
                                           snapPetToNearestEdge();
                                       }
                                       return true;
@@ -984,10 +1096,9 @@ jobs:
                           }
                       });
 
-                      // 2. 初始化独立气泡与双按钮小窗口 panelWebView（平时 GONE，0 遮挡）
                       panelParams = new WindowManager.LayoutParams(
-                              dp(230),
-                              dp(120),
+                              dp(235),
+                              dp(130),
                               WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                               WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                                       | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
@@ -1006,7 +1117,7 @@ jobs:
                       panelWebView.setWebViewClient(new WebViewClient() {
                           @Override
                           public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                              return assetLoader.shouldInterceptRequest(request.getUrl());
+                              return interceptCustomSpriteRequest(FloatingOverlayService.this, request, assetLoader);
                           }
                       });
                       panelWebView.addJavascriptInterface(new SharedOverlayBridge(), "OverlayBridge");
@@ -1074,7 +1185,6 @@ jobs:
                       }
                   }
 
-                  // 根据「待机露半个头」或「跳出站好」精确裁剪 petParams 物理窗口尺寸（绝不多占 1 像素透明区域！）
                   private void applyPetGeometry() {
                       if (windowManager == null || petWebView == null) return;
                       DisplayMetrics dm = getResources().getDisplayMetrics();
@@ -1154,15 +1264,12 @@ jobs:
                       int ph = panelParams.height;
 
                       if ("right".equals(dockEdge)) {
-                          // 桌宠在右边，气泡面板放在桌宠左侧
                           panelParams.x = Math.max(dp(8), petParams.x - pw - dp(6));
                           panelParams.y = Math.max(dp(36), Math.min(screenHeight - ph - dp(36), petParams.y + petParams.height / 2 - ph / 2));
                       } else if ("left".equals(dockEdge)) {
-                          // 桌宠在左边，气泡面板放在桌宠右侧
                           panelParams.x = Math.min(screenWidth - pw - dp(8), petParams.x + petParams.width + dp(6));
                           panelParams.y = Math.max(dp(36), Math.min(screenHeight - ph - dp(36), petParams.y + petParams.height / 2 - ph / 2));
                       } else {
-                          // 桌宠在底部，气泡面板放在桌宠正上方
                           int petCenterX = petParams.x + petParams.width / 2;
                           panelParams.x = Math.max(dp(8), Math.min(screenWidth - pw - dp(8), petCenterX - pw / 2));
                           panelParams.y = Math.max(dp(36), petParams.y - ph - dp(6));
@@ -1203,6 +1310,10 @@ jobs:
                           evalPetJs("window.reloadSpriteConfig && window.reloadSpriteConfig();");
                           evalPanelJs("window.reloadPanelConfig && window.reloadPanelConfig();");
                       });
+                  }
+
+                  public void notifyCustomSpriteUpdated() {
+                      evalPetJs("window.reloadSpriteConfig && window.reloadSpriteConfig(true);");
                   }
 
                   public void notifyInstantEvent(String type, String defaultLine) {
@@ -1274,6 +1385,12 @@ jobs:
                       }
 
                       @JavascriptInterface
+                      public boolean hasCustomSprite(String kind) {
+                          String fn = "talk".equals(kind) ? "custom_talk.dat" : "custom_idle.dat";
+                          return new File(getFilesDir(), fn).exists();
+                      }
+
+                      @JavascriptInterface
                       public String getDeviceContextJson() {
                           return DeviceContextHelper.getDeviceStatusJson(FloatingOverlayService.this);
                       }
@@ -1302,7 +1419,7 @@ jobs:
                                   @Override public void onResults(Bundle results) {
                                       ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                                       if (matches != null && !matches.isEmpty()) {
-                                          String text = matches.get(0).replace("'", "\\'");
+                                          String text = matches.getString(0).replace("'", "\\'");
                                           evalPanelJs("window.onVoiceResult && window.onVoiceResult('" + text + "');");
                                       }
                                   }
@@ -1347,7 +1464,7 @@ jobs:
               }
               """).lstrip())
 
-          # 7. MainActivity.java
+          # 7. MainActivity.java (新增从手机相册选择自定义角色贴图与张嘴差分贴图功能)
           with open(os.path.join(java_dir, 'MainActivity.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
@@ -1356,6 +1473,7 @@ jobs:
               import android.app.Activity;
               import android.content.Context;
               import android.content.Intent;
+              import android.content.SharedPreferences;
               import android.media.projection.MediaProjectionManager;
               import android.net.Uri;
               import android.os.Build;
@@ -1370,11 +1488,16 @@ jobs:
               import androidx.appcompat.app.AppCompatActivity;
               import androidx.core.app.ActivityCompat;
               import androidx.webkit.WebViewAssetLoader;
+              import java.io.File;
+              import java.io.FileOutputStream;
+              import java.io.InputStream;
 
               public class MainActivity extends AppCompatActivity {
                   private static final int REQ_MEDIA_PROJECTION = 2001;
                   private static final int REQ_PERMS = 2002;
                   private static final int REQ_OVERLAY = 2003;
+                  private static final int REQ_PICK_IDLE_SPRITE = 2004;
+                  private static final int REQ_PICK_TALK_SPRITE = 2005;
                   private WebView controlWebView;
 
                   @Override
@@ -1386,6 +1509,7 @@ jobs:
                       WebSettings s = controlWebView.getSettings();
                       s.setJavaScriptEnabled(true);
                       s.setDomStorageEnabled(true);
+                      s.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
                       final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                               .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -1394,7 +1518,7 @@ jobs:
                       controlWebView.setWebViewClient(new WebViewClient() {
                           @Override
                           public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                              return assetLoader.shouldInterceptRequest(request.getUrl());
+                              return FloatingOverlayService.interceptCustomSpriteRequest(MainActivity.this, request, assetLoader);
                           }
                       });
 
@@ -1420,6 +1544,36 @@ jobs:
                       ActivityCompat.requestPermissions(this, perms, REQ_PERMS);
                   }
 
+                  private void savePickedSpriteUri(Uri uri, String targetFileName) {
+                      if (uri == null) return;
+                      try {
+                          String mime = getContentResolver().getType(uri);
+                          if (mime == null || mime.isEmpty()) mime = "image/png";
+                          InputStream is = getContentResolver().openInputStream(uri);
+                          if (is == null) return;
+                          File outFile = new File(getFilesDir(), targetFileName);
+                          FileOutputStream fos = new FileOutputStream(outFile);
+                          byte[] buf = new byte[8192];
+                          int len;
+                          while ((len = is.read(buf)) > 0) {
+                              fos.write(buf, 0, len);
+                          }
+                          fos.flush();
+                          fos.close();
+                          is.close();
+
+                          SharedPreferences sp = getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
+                          sp.edit().putString("mime_" + targetFileName, mime).apply();
+
+                          if (FloatingOverlayService.instance != null) {
+                              FloatingOverlayService.instance.notifyCustomSpriteUpdated();
+                          }
+                          if (controlWebView != null) {
+                              controlWebView.evaluateJavascript("window.onCustomSpriteChanged && window.onCustomSpriteChanged();", null);
+                          }
+                      } catch (Exception ignored) {}
+                  }
+
                   @Override
                   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
                       super.onActivityResult(requestCode, resultCode, data);
@@ -1441,6 +1595,10 @@ jobs:
                                   startService(serviceIntent);
                               }
                           }
+                      } else if (requestCode == REQ_PICK_IDLE_SPRITE && resultCode == Activity.RESULT_OK && data != null) {
+                          savePickedSpriteUri(data.getData(), "custom_idle.dat");
+                      } else if (requestCode == REQ_PICK_TALK_SPRITE && resultCode == Activity.RESULT_OK && data != null) {
+                          savePickedSpriteUri(data.getData(), "custom_talk.dat");
                       }
                   }
 
@@ -1481,6 +1639,37 @@ jobs:
                               controlWebView.postDelayed(() ->
                                       controlWebView.evaluateJavascript("window.refreshDashboard && window.refreshDashboard();", null), 400);
                           });
+                      }
+
+                      @JavascriptInterface
+                      public void pickCustomSprite(final String kind) {
+                          runOnUiThread(() -> {
+                              Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                              intent.setType("image/*");
+                              intent.addCategory(Intent.CATEGORY_OPENABLE);
+                              int code = "talk".equals(kind) ? REQ_PICK_TALK_SPRITE : REQ_PICK_IDLE_SPRITE;
+                              startActivityForResult(Intent.createChooser(intent, "选择自定义角色贴图 (PNG/GIF/WebP)"), code);
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public void resetCustomSprites() {
+                          runOnUiThread(() -> {
+                              new File(getFilesDir(), "custom_idle.dat").delete();
+                              new File(getFilesDir(), "custom_talk.dat").delete();
+                              if (FloatingOverlayService.instance != null) {
+                                  FloatingOverlayService.instance.notifyCustomSpriteUpdated();
+                              }
+                              if (controlWebView != null) {
+                                  controlWebView.evaluateJavascript("window.onCustomSpriteChanged && window.onCustomSpriteChanged();", null);
+                              }
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public boolean hasCustomSprite(String kind) {
+                          String fn = "talk".equals(kind) ? "custom_talk.dat" : "custom_idle.dat";
+                          return new File(getFilesDir(), fn).exists();
                       }
 
                       @JavascriptInterface
@@ -1528,7 +1717,7 @@ jobs:
               }
               """).lstrip())
 
-          # 8. 生成纯桌宠本体渲染页 pet-sprite.html（100vw x 100vh 实时跟随窗口大小等比缩放贴图 + 贴边露半头 + 呼吸与张嘴）
+          # 8. 生成纯桌宠本体渲染页 pet-sprite.html（支持自定义角色贴图 PNG/GIF/WebP + 可选说话差分贴图 + 实时等比缩放）
           with open(os.path.join(www_dir, 'pet-sprite.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
@@ -1543,11 +1732,10 @@ jobs:
                     background: transparent !important;
                   }
                   #sprite-wrap {
-                    width: 100vw; height: 100vh;
+                    width: 100vw; height: 100vh; position: relative;
                     display: flex; align-items: center; justify-content: center;
                     transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
                   }
-                  /* 待机半探头姿态（像 QQ 企鹅一样从边缘探出半个小脑袋） */
                   body.pose-peek.edge-right #sprite-wrap {
                     transform: translateX(32%) rotate(-24deg);
                   }
@@ -1560,15 +1748,22 @@ jobs:
                   body.pose-active #sprite-wrap {
                     transform: translate(0, 0) rotate(0deg);
                   }
-                  /* 关键修复：Canvas 设为 100% 宽高，彻底解决调节大小时贴图不缩放的问题！ */
-                  canvas {
+                  canvas, #custom-gif-img {
                     width: 100%; height: 100%; display: block; object-fit: contain;
+                  }
+                  #custom-gif-img {
+                    display: none;
+                  }
+                  #mood-badge {
+                    position: absolute; top: 2px; right: 2px; font-size: 16px; pointer-events: none;
                   }
                 </style>
               </head>
               <body class="pose-peek edge-right">
                 <div id="sprite-wrap">
                   <canvas id="pet-canvas" width="256" height="256"></canvas>
+                  <img id="custom-gif-img" alt="pet" />
+                  <div id="mood-badge"></div>
                 </div>
                 <script>
                   const COLOR_SCHEMES = {
@@ -1583,17 +1778,14 @@ jobs:
                   };
 
                   let officialImg = new Image();
-                  let hasImg = false;
-                  officialImg.onload = () => { hasImg = true; };
+                  let hasOfficial = false;
+                  officialImg.onload = () => { hasOfficial = true; };
                   officialImg.src = 'whale-official-icon.png';
 
-                  fetch('whale-assets-manifest.json')
-                    .then(r => r.json())
-                    .then(m => {
-                      if (!hasImg && m.whaleImages && m.whaleImages.length > 0) {
-                        officialImg.src = m.whaleImages[0];
-                      }
-                    }).catch(() => {});
+                  let customIdleImg = new Image();
+                  let hasCustomIdle = false;
+                  let customTalkImg = new Image();
+                  let hasCustomTalk = false;
 
                   let state = {
                     tick: 0,
@@ -1602,11 +1794,34 @@ jobs:
                     mood: 'calm'
                   };
 
-                  window.reloadSpriteConfig = function() {
+                  window.reloadSpriteConfig = function(forceReloadImg) {
                     try {
                       const cfg = JSON.parse(localStorage.getItem('whale_v6_cfg') || '{}');
                       document.getElementById('sprite-wrap').style.filter = COLOR_SCHEMES[cfg.colorScheme] || 'none';
                     } catch (_) {}
+
+                    if (window.OverlayBridge) {
+                      const idleExists = window.OverlayBridge.hasCustomSprite('idle');
+                      const talkExists = window.OverlayBridge.hasCustomSprite('talk');
+                      const ts = Date.now();
+                      if (idleExists) {
+                        customIdleImg = new Image();
+                        customIdleImg.onload = () => { hasCustomIdle = true; };
+                        customIdleImg.src = 'https://appassets.androidplatform.net/custom_sprites/custom_idle.dat?t=' + ts;
+                        // 同步给 GIF <img> 标签以支持动态 GIF/WebP 帧播放
+                        const gifEl = document.getElementById('custom-gif-img');
+                        gifEl.src = customIdleImg.src;
+                      } else {
+                        hasCustomIdle = false;
+                      }
+                      if (talkExists) {
+                        customTalkImg = new Image();
+                        customTalkImg.onload = () => { hasCustomTalk = true; };
+                        customTalkImg.src = 'https://appassets.androidplatform.net/custom_sprites/custom_talk.dat?t=' + ts;
+                      } else {
+                        hasCustomTalk = false;
+                      }
+                    }
                   };
 
                   window.setPetPose = function(pose, edge) {
@@ -1653,10 +1868,20 @@ jobs:
                     const sy = 1 - state.bounce * 0.10;
                     ctx.scale(sx, sy);
 
-                    if (hasImg && officialImg.complete && officialImg.naturalWidth > 0) {
-                      // 满画布绘制原版大肥鱼贴图（随窗口大小 100% 缩放）
-                      ctx.drawImage(officialImg, -118, -118, 236, 236);
-                      if (state.mouth > 0.08) {
+                    // 优先绘制用户自定义贴图（如果正在说话且上传了张嘴差分贴图，自动切换为张嘴贴图！）
+                    let activeImg = null;
+                    if (state.mouth > 0.1 && hasCustomTalk && customTalkImg.complete && customTalkImg.naturalWidth > 0) {
+                      activeImg = customTalkImg;
+                    } else if (hasCustomIdle && customIdleImg.complete && customIdleImg.naturalWidth > 0) {
+                      activeImg = customIdleImg;
+                    } else if (hasOfficial && officialImg.complete && officialImg.naturalWidth > 0) {
+                      activeImg = officialImg;
+                    }
+
+                    if (activeImg) {
+                      ctx.drawImage(activeImg, -118, -118, 236, 236);
+                      // 若未设置独立张嘴贴图，使用默认大肥鱼时绘制动态口型
+                      if (!hasCustomIdle && state.mouth > 0.08) {
                         ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
                         ctx.beginPath();
                         ctx.ellipse(0, 22, 8, 3 + state.mouth * 9, 0, 0, Math.PI * 2);
@@ -1681,14 +1906,14 @@ jobs:
                     requestAnimationFrame(draw);
                   }
 
-                  reloadSpriteConfig();
+                  reloadSpriteConfig(true);
                   requestAnimationFrame(draw);
                 </script>
               </body>
               </html>
               """).lstrip())
 
-          # 9. 生成独立气泡与双按钮浮窗页 pet-panel.html（修复等待回复时自动收起问题 + 支持酒馆预设组装与 Thinking Budget 0 极速秒回）
+          # 9. 生成独立气泡与双按钮浮窗页 pet-panel.html（新增 AbortController：思考/生成时点 ✕ 立即停止生成！）
           with open(os.path.join(www_dir, 'pet-panel.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
@@ -1728,6 +1953,9 @@ jobs:
                   .pill-btn.close {
                     border-color: rgba(148, 163, 184, 0.45); color: #94a3b8; padding: 5px 9px;
                   }
+                  .pill-btn.stop-active {
+                    border-color: #f87171; background: rgba(127, 29, 29, 0.92); color: #fecaca; padding: 5px 11px;
+                  }
                   #input-row {
                     display: none; gap: 5px; align-items: center;
                     background: rgba(15, 23, 42, 0.96);
@@ -1750,7 +1978,7 @@ jobs:
                   <div class="btn-row" id="action-row">
                     <button class="pill-btn" onclick="startVoice()">🎤 语音</button>
                     <button class="pill-btn" onclick="openInputBar()">💬 对话</button>
-                    <button class="pill-btn close" onclick="closePanelNow()" title="收起">✕</button>
+                    <button class="pill-btn close" id="btn-close-or-stop" onclick="onCloseOrStopClicked()" title="停止生成或收起">✕</button>
                   </div>
 
                   <div id="input-row">
@@ -1774,10 +2002,9 @@ jobs:
                     "扑腾！水面巡逻完毕，报告主人，今天也是超级想你的一天！"
                   ];
 
-                  // 默认酒馆（SillyTavern）风格模块化预设
                   const DEFAULT_TAVERN_PRESET = {
                     presetName: '⚡ 极速秒回桌宠预设（默认）',
-                    thinkingBudget: 0, // 0 = 关闭思考链，0.5秒极速出字！
+                    thinkingBudget: 0,
                     temperature: 0.85,
                     topP: 0.95,
                     maxTokens: 140,
@@ -1849,11 +2076,49 @@ jobs:
                   let chatHistory = [];
                   let lastReplyText = '';
                   let isScreenOn = true;
-                  // 关键修复 #2：等待回复或流式输出期间，isBusy = true，彻底锁死自动收起定时器！
                   let isBusy = false;
+                  let currentAbortController = null;
                   let autoCollapseTimer = null;
                   let thinkingTicker = null;
                   let cachedWeather = '晴朗适宜';
+
+                  function updateCloseBtnState(busy) {
+                    const btn = document.getElementById('btn-close-or-stop');
+                    if (!btn) return;
+                    if (busy) {
+                      btn.textContent = '✕ 停止';
+                      btn.classList.add('stop-active');
+                    } else {
+                      btn.textContent = '✕';
+                      btn.classList.remove('stop-active');
+                    }
+                  }
+
+                  // 核心修复 #1：思考或生成时点击 ✕ 立即调用 AbortController 停止生成！
+                  function onCloseOrStopClicked() {
+                    if (isBusy) {
+                      if (currentAbortController) {
+                        try { currentAbortController.abort(); } catch (_) {}
+                        currentAbortController = null;
+                      }
+                      clearInterval(thinkingTicker);
+                      isBusy = false;
+                      updateCloseBtnState(false);
+                      if (window.OverlayBridge) {
+                        window.OverlayBridge.setPetMoodAndMouth('calm', 0);
+                      }
+                      const curText = document.getElementById('bubble-box').textContent || '';
+                      if (curText.startsWith('💭 思考中') || curText.startsWith('🎤')) {
+                        setBubbleText('⏹ 已停止生成');
+                      } else {
+                        setBubbleText(curText + ' [⏹已停止]');
+                      }
+                      scheduleAutoCollapse(20000);
+                      return;
+                    }
+                    // 非思考状态下点击 ✕ 则直接收起回半个头
+                    closePanelNow();
+                  }
 
                   function reloadPanelConfig() {
                     try {
@@ -1870,7 +2135,6 @@ jobs:
                     refreshWeatherInBackground();
                   }
 
-                  // 天气改为纯后台异步刷新，绝不阻塞和拖慢普通聊天响应速度！
                   async function refreshWeatherInBackground() {
                     try {
                       let dev = {};
@@ -1909,7 +2173,6 @@ jobs:
 
                   function scheduleAutoCollapse(delayMs = 25000) {
                     clearTimeout(autoCollapseTimer);
-                    // 如果正在语音输入、等待 AI 思考或流式输出中，绝对不启动收起倒计时！
                     if (isBusy) return;
                     autoCollapseTimer = setTimeout(() => {
                       if (!isBusy && window.OverlayBridge) {
@@ -1919,7 +2182,7 @@ jobs:
                   }
 
                   window.onPetWakeUp = function() {
-                    if (isBusy) return; // 正在等待回复时不覆盖思考状态
+                    if (isBusy) return;
                     const line = WAKE_GREETINGS[Math.floor(Math.random() * WAKE_GREETINGS.length)];
                     setBubbleText(line);
                     closeInputBar(false);
@@ -1949,7 +2212,12 @@ jobs:
                   }
 
                   function closePanelNow() {
+                    if (currentAbortController) {
+                      try { currentAbortController.abort(); } catch (_) {}
+                      currentAbortController = null;
+                    }
                     isBusy = false;
+                    updateCloseBtnState(false);
                     clearInterval(thinkingTicker);
                     clearTimeout(autoCollapseTimer);
                     if (window.OverlayBridge) {
@@ -1960,6 +2228,7 @@ jobs:
                   function startVoice() {
                     clearTimeout(autoCollapseTimer);
                     isBusy = true;
+                    updateCloseBtnState(true);
                     setBubbleText('🎤 正在倾听，请说话...');
                     if (window.OverlayBridge) {
                       window.OverlayBridge.setPetMoodAndMouth('listening', 0);
@@ -1972,6 +2241,7 @@ jobs:
                       askWhaleWithTavernPreset(text.trim());
                     } else {
                       isBusy = false;
+                      updateCloseBtnState(false);
                       setBubbleText('没听清呢，点「🎤 语音」再试一次吧～');
                       scheduleAutoCollapse(15000);
                     }
@@ -1979,6 +2249,7 @@ jobs:
 
                   window.onVoiceError = function() {
                     isBusy = false;
+                    updateCloseBtnState(false);
                     setBubbleText('没听清呢，点「🎤 语音」再试一次或点「💬 对话」打字吧～');
                     scheduleAutoCollapse(15000);
                   };
@@ -1992,7 +2263,6 @@ jobs:
                     askWhaleWithTavernPreset(txt);
                   }
 
-                  // 解析酒馆预设中的宏变量 {{char}}, {{user}}, {{time}}, {{battery}}, {{weather}}, {{song}}, {{notifications}}, {{alarm}}
                   function replaceTavernMacros(str) {
                     let dev = {};
                     if (window.OverlayBridge) {
@@ -2006,7 +2276,7 @@ jobs:
                       .replace(/\{\{time\}\}/g, dev.timeStr || new Date().toLocaleTimeString())
                       .replace(/\{\{battery\}\}/g, batStr)
                       .replace(/\{\{weather\}\}/g, cachedWeather)
-                      .replace(/\{\{alarm\}\}/g, dev.nextAlarm || '无')
+                      .replace(/\{\{alarm\}\}/g, dev.nextAlarm || '未设置')
                       .replace(/\{\{notifications\}\}/g, notifStr)
                       .replace(/\{\{song\}\}/g, dev.currentSong || '暂无播放');
                   }
@@ -2017,18 +2287,25 @@ jobs:
                       : Boolean(config.apiKey && config.apiKey.trim());
                   }
 
-                  // 核心对话函数：使用酒馆预设 + Thinking Budget 控制 + 锁定窗口绝不中途收起
                   async function askWhaleWithTavernPreset(userMessage) {
                     reloadPanelConfig();
                     if (!hasValidKey()) {
                       isBusy = false;
+                      updateCloseBtnState(false);
                       setBubbleText('请先打开「大肥鱼全局伴侣」主程序填好 API Key 哦！');
                       scheduleAutoCollapse(15000);
                       return;
                     }
 
-                    // 锁定窗口，禁止自动收起！
+                    // 如果上一次请求还在跑，先中止上一次
+                    if (currentAbortController) {
+                      try { currentAbortController.abort(); } catch (_) {}
+                    }
+                    currentAbortController = new AbortController();
+                    const signal = currentAbortController.signal;
+
                     isBusy = true;
+                    updateCloseBtnState(true);
                     clearTimeout(autoCollapseTimer);
                     clearInterval(thinkingTicker);
                     if (window.OverlayBridge) {
@@ -2037,10 +2314,10 @@ jobs:
                     }
 
                     const startMs = Date.now();
-                    setBubbleText('💭 思考中 (0.0s)...');
+                    setBubbleText('💭 思考中 (0.0s)... [点 ✕ 可随时停止]');
                     thinkingTicker = setInterval(() => {
                       const sec = ((Date.now() - startMs) / 1000).toFixed(1);
-                      setBubbleText(`💭 思考中 (${sec}s)...`);
+                      setBubbleText(`💭 思考中 (${sec}s)... [点 ✕ 停止]`);
                     }, 200);
 
                     const preset = config.tavernPreset || DEFAULT_TAVERN_PRESET;
@@ -2085,7 +2362,6 @@ jobs:
                           topP: topP,
                           maxOutputTokens: maxTok
                         };
-                        // 关键提速：对于 gemini-2.5 系列模型，设置 thinkingBudget: 0 直接关闭思考链，实现 0.5 秒极速响应！
                         if (!isNaN(thinkBudget) && thinkBudget >= 0 && cleanModel.includes('2.5')) {
                           genConfig.thinkingConfig = { thinkingBudget: thinkBudget };
                         }
@@ -2093,6 +2369,7 @@ jobs:
                         const res = await fetch(url, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
+                          signal: signal,
                           body: JSON.stringify({
                             systemInstruction: { parts: [{ text: sysText }] },
                             contents: geminiContents,
@@ -2116,7 +2393,6 @@ jobs:
                             try {
                               const parsed = JSON.parse(payload);
                               const parts = parsed.candidates?.[0]?.content?.parts || [];
-                              // 过滤掉 thought 思考分片，只展示正文
                               const delta = parts.filter(p => !p.thought).map(p => p.text || '').join('');
                               if (delta) {
                                 if (firstChunk) {
@@ -2157,6 +2433,7 @@ jobs:
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${config.apiKey}`
                           },
+                          signal: signal,
                           body: JSON.stringify(bodyObj)
                         });
                         if (!res.ok) throw new Error('OpenAI HTTP ' + res.status);
@@ -2194,26 +2471,30 @@ jobs:
 
                       clearInterval(thinkingTicker);
                       if (!reply.trim()) {
-                        reply = '（歪头眨了眨眼，没有说出来话，检查一下模型或最大 Token 设置吧～）';
+                        reply = '（歪了歪头，没有发出声音～）';
                         setBubbleText(reply);
                       }
                       lastReplyText = reply;
                       chatHistory.push({ role: 'assistant', content: reply });
                     } catch (err) {
                       clearInterval(thinkingTicker);
-                      setBubbleText('请求出错 (' + err.message + ')，请检查主程序接口设置～');
+                      if (err && err.name === 'AbortError') {
+                        // 用户主动点击了 ✕ 停止生成，不报错
+                        return;
+                      }
+                      setBubbleText('请求出错 (' + err.message + ')，请检查接口设置～');
                     } finally {
                       clearInterval(thinkingTicker);
                       isBusy = false;
+                      currentAbortController = null;
+                      updateCloseBtnState(false);
                       if (window.OverlayBridge) {
                         window.OverlayBridge.setPetMoodAndMouth('happy', 0);
                       }
-                      // 回复完成后完整停留 28 秒再自动收起，确保你能看清每一条消息！
                       scheduleAutoCollapse(28000);
                     }
                   }
 
-                  // 每 30 分钟主动生成情境对话
                   window.triggerHalfHourContextChat = function(forceWake) {
                     if (!isScreenOn && !forceWake) return;
                     reloadPanelConfig();
@@ -2244,9 +2525,9 @@ jobs:
                   window.onNativeInstantEvent = function(type, defaultLine) {
                     if (!isScreenOn) return;
                     setBubbleText(defaultLine);
-                    scheduleAutoCollapse(18000);
+                    scheduleAutoCollapse(20000);
                     if (hasValidKey() && !isBusy) {
-                      askWhaleWithTavernPreset(`[手机刚刚发生即时事件：${type}] 请立即跟{{user}}说一句简短应景的话。`);
+                      askWhaleWithTavernPreset(`[手机刚刚发生即时事件：${type}（${defaultLine}）] 请立即跟{{user}}说一句简短贴心的提醒或互动。`);
                     }
                   };
 
@@ -2269,7 +2550,7 @@ jobs:
               </html>
               """).lstrip())
 
-          # 10. 生成主程序控制台页面 control-panel.html（含 QQ 企鹅级小尺寸滑条 32dp~150dp + 酒馆式模块化预设编辑器 + 思考预算 0 秒回设置 + Salt Player 状态检测）
+          # 10. 生成主程序控制台页面 control-panel.html（新增「自定义角色贴图更换面板」+ 真实闹钟展示 + 酒馆预设编辑器）
           with open(os.path.join(www_dir, 'control-panel.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
@@ -2277,7 +2558,7 @@ jobs:
               <head>
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                <title>大肥鱼全局伴侣 v6 · 酒馆预设控制台</title>
+                <title>大肥鱼全局伴侣 v7 · 控制台</title>
                 <style>
                   :root {
                     --bg: #0f172a;
@@ -2292,7 +2573,7 @@ jobs:
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                   }
                   .header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-                  .header img { width: 50px; height: 50px; border-radius: 14px; background: #334155; object-fit: contain; }
+                  .header img { width: 52px; height: 52px; border-radius: 14px; background: #334155; object-fit: contain; }
                   .card {
                     background: var(--card); border: 1px solid rgba(255,255,255,0.1);
                     border-radius: 16px; padding: 14px; margin-bottom: 14px;
@@ -2328,13 +2609,22 @@ jobs:
                     border: 1px solid rgba(255,255,255,0.16); background: #0f172a; color: var(--text); font-size: 12.5px;
                   }
                   input[type="range"] { padding: 0; accent-color: var(--accent); }
-                  /* 酒馆风格预设条目卡片 */
                   .st-entry {
                     background: rgba(15, 23, 42, 0.78); border: 1px solid rgba(56, 189, 248, 0.25);
                     border-radius: 12px; padding: 10px; margin-bottom: 10px;
                   }
                   .st-entry-head {
                     display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12.5px; font-weight: 600;
+                  }
+                  .sprite-preview-row {
+                    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
+                  }
+                  .sprite-box {
+                    background: rgba(15, 23, 42, 0.7); border: 1px dashed rgba(56, 189, 248, 0.4);
+                    border-radius: 12px; padding: 10px; text-align: center;
+                  }
+                  .sprite-box img {
+                    width: 64px; height: 64px; object-fit: contain; display: block; margin: 0 auto 6px;
                   }
                   #connect-status {
                     font-size: 12px; margin-top: 8px; padding: 8px 12px; border-radius: 10px;
@@ -2344,10 +2634,10 @@ jobs:
               </head>
               <body>
                 <div class="header">
-                  <img src="whale-official-icon.png" onerror="this.style.display='none'" />
+                  <img id="top-avatar-img" src="whale-official-icon.png" onerror="this.style.display='none'" />
                   <div>
-                    <h2 style="margin:0; font-size:17px;">🐟 大肥鱼全局伴侣 v6</h2>
-                    <p style="margin:3px 0 0; font-size:11.5px; color:var(--mute);">QQ 企鹅级小巧零遮挡 · 酒馆预设秒回 · Salt Player 识曲</p>
+                    <h2 style="margin:0; font-size:17px;">🐟 大肥鱼全局伴侣 v7</h2>
+                    <p style="margin:3px 0 0; font-size:11.5px; color:var(--mute);">自定义角色贴图 · 80%/40%电量提醒 · 真实闹钟与酒馆预设</p>
                   </div>
                 </div>
 
@@ -2365,9 +2655,23 @@ jobs:
                   <button class="btn secondary" onclick="MainBridge.triggerTestContextGreeting()">✨ 立即测试根据手机/音乐状态搭话</button>
                 </div>
 
-                <!-- 2. 尺寸与外观调节（已缩小至 QQ 企鹅 58dp 默认大小，贴图 100% 跟随缩放） -->
+                <!-- 2. 自定义角色贴图与尺寸调节 -->
                 <div class="card">
-                  <h3>🎨 第二步：桌宠大小与配色（贴图实时等比缩放）</h3>
+                  <h3>🖼️ 第二步：自定义角色贴图与大小调节</h3>
+                  <div class="sprite-preview-row">
+                    <div class="sprite-box">
+                      <img id="prev-idle-img" src="whale-official-icon.png" />
+                      <div style="font-size:11.5px; color:var(--mute); margin-bottom:4px;" id="lbl-idle-status">当前：默认大肥鱼</div>
+                      <button class="btn" style="margin-top:2px; padding:7px 10px; font-size:12px;" onclick="MainBridge.pickCustomSprite('idle')">📂 更换平时贴图</button>
+                    </div>
+                    <div class="sprite-box">
+                      <img id="prev-talk-img" src="whale-official-icon.png" />
+                      <div style="font-size:11.5px; color:var(--mute); margin-bottom:4px;" id="lbl-talk-status">说话差分：未设置(可选)</div>
+                      <button class="btn secondary" style="margin-top:2px; padding:7px 10px; font-size:12px;" onclick="MainBridge.pickCustomSprite('talk')">🗣️ 更换说话贴图</button>
+                    </div>
+                  </div>
+                  <button class="btn secondary" style="margin-top:0; margin-bottom:12px;" onclick="MainBridge.resetCustomSprites()">🔄 恢复默认大肥鱼贴图</button>
+
                   <div class="field">
                     <label>
                       <span>桌宠大小（32dp 超迷你 ~ 58dp QQ企鹅同款 ~ 150dp）</span>
@@ -2385,10 +2689,10 @@ jobs:
                     </select>
                   </div>
                   <div class="field">
-                    <label><span>大肥鱼配色方案（8 套主题）</span></label>
+                    <label><span>色彩滤镜主题（对自定义贴图同样生效）</span></label>
                     <select id="cfg-scheme" onchange="saveAllConfig(false)">
-                      <option value="deepseek_blue">🌊 DeepSeek 经典深海蓝</option>
-                      <option value="claude_amber">🍯 Claude 暖阳琥珀橘</option>
+                      <option value="deepseek_blue">🌊 原色 / 默认无滤镜</option>
+                      <option value="claude_amber">🍯 暖阳琥珀橘</option>
                       <option value="sakura_pink">🌸 樱花元气粉</option>
                       <option value="mint_emerald">🌿 薄荷翡翠绿</option>
                       <option value="violet_dream">🔮 幻境星云紫</option>
@@ -2431,7 +2735,7 @@ jobs:
                   </div>
 
                   <p style="font-size:11.5px; color:var(--mute); margin:6px 0 8px;">
-                    👇 <b>酒馆模块化提示词条目</b>（支持独立开关与宏变量 <code>{{char}}</code> <code>{{user}}</code> <code>{{time}}</code> <code>{{battery}}</code> <code>{{weather}}</code> <code>{{song}}</code> <code>{{notifications}}</code>）：
+                    👇 <b>酒馆模块化提示词条目</b>（更换其他角色贴图后，可直接修改下方角色设定卡）：
                   </p>
                   <div id="st-entries-container"></div>
 
@@ -2510,8 +2814,8 @@ jobs:
                     <span style="font-size:11px; color:var(--mute); cursor:pointer;" onclick="refreshDashboard()">🔄 刷新</span>
                   </h3>
                   <div class="status-grid">
-                    <div class="stat-item"><span>电量与温度</span><b id="st-battery">--</b></div>
-                    <div class="stat-item"><span>下一个闹钟</span><b id="st-alarm">--</b></div>
+                    <div class="stat-item"><span>电量与温度（80%/40%自动提醒）</span><b id="st-battery">--</b></div>
+                    <div class="stat-item"><span>下一个真实闹钟（已过滤00:00伪闹钟）</span><b id="st-alarm">--</b></div>
                     <div class="stat-item"><span>未接来电 / 未读短信</span><b id="st-calls-sms">--</b></div>
                     <div class="stat-item"><span>未读微信与社交消息</span><b id="st-social">--</b></div>
                     <div class="stat-item" style="grid-column: span 2;">
@@ -2594,6 +2898,35 @@ jobs:
 
                   let currentProvider = 'gemini';
                   let currentEntries = JSON.parse(JSON.stringify(DEFAULT_TAVERN_PRESET.entries));
+
+                  window.onCustomSpriteChanged = function() {
+                    if (!window.MainBridge) return;
+                    const ts = Date.now();
+                    const hasIdle = window.MainBridge.hasCustomSprite('idle');
+                    const hasTalk = window.MainBridge.hasCustomSprite('talk');
+                    const idleImg = document.getElementById('prev-idle-img');
+                    const talkImg = document.getElementById('prev-talk-img');
+                    const topAvatar = document.getElementById('top-avatar-img');
+
+                    if (hasIdle) {
+                      const url = 'https://appassets.androidplatform.net/custom_sprites/custom_idle.dat?t=' + ts;
+                      idleImg.src = url;
+                      topAvatar.src = url;
+                      document.getElementById('lbl-idle-status').textContent = '✅ 已启用自定义贴图';
+                    } else {
+                      idleImg.src = 'whale-official-icon.png';
+                      topAvatar.src = 'whale-official-icon.png';
+                      document.getElementById('lbl-idle-status').textContent = '当前：默认大肥鱼';
+                    }
+
+                    if (hasTalk) {
+                      talkImg.src = 'https://appassets.androidplatform.net/custom_sprites/custom_talk.dat?t=' + ts;
+                      document.getElementById('lbl-talk-status').textContent = '✅ 已启用说话差分图';
+                    } else {
+                      talkImg.src = hasIdle ? idleImg.src : 'whale-official-icon.png';
+                      document.getElementById('lbl-talk-status').textContent = '说话差分：未设置(可选)';
+                    }
+                  };
 
                   function renderTavernEntries() {
                     const box = document.getElementById('st-entries-container');
@@ -2756,6 +3089,7 @@ jobs:
                     }
                     renderTavernEntries();
                     switchProviderTab(cfg.apiProvider || 'gemini');
+                    onCustomSpriteChanged();
                   }
 
                   function saveAllConfig(showAlert) {
@@ -2788,7 +3122,7 @@ jobs:
                       window.MainBridge.notifyConfigSaved(sizeDp);
                     }
                     if (showAlert) {
-                      alert('设置与酒馆预设已保存，并已实时同步给悬浮桌宠！');
+                      alert('设置已保存并实时同步给悬浮桌宠！');
                     }
                   }
 
@@ -2842,7 +3176,7 @@ jobs:
               </body>
               </html>
               """).lstrip())
-          print("WhaleCompanion v6 generated successfully.")
+          print("WhaleCompanion v7 generated successfully.")
           PY
 
       - name: 6. 安装匹配的 Gradle 8.5 环境
@@ -2858,6 +3192,6 @@ jobs:
       - name: 8. 上传编译好的安卓 APK 安装包
         uses: actions/upload-artifact@v4
         with:
-          name: DeepSeek-Whale-Android-APK-v6
+          name: DeepSeek-Whale-Android-APK-v7
           path: /tmp/whale-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
