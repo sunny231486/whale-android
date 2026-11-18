@@ -1,5 +1,5 @@
 # ==============================================================================
-# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓独立伴侣版 · 零代码云端一键自动打包配置
+# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓独立伴侣版 · 零代码云端一键自动打包配置（已修复版）
 # ==============================================================================
 #
 # 【完全不会编程？只需在浏览器里做完这 4 步（约 3 分钟），GitHub 会自动帮你生成安卓安装包 APK】
@@ -19,15 +19,6 @@
 #         - 点进这条任务，滑到页面最底部的「Artifacts」区域，点击「DeepSeek-Whale-Android-APK」即可下载压缩包，
 #           解压里面的 app-debug.apk 发到手机上安装即可！
 #
-# ==============================================================================
-# ✨ 本自动打包脚本为你内置的全部功能：
-# 1. 自动从 https://github.com/takboo/dsh-coopanion 提取「大肥鱼」角色贴图、骨骼组件与音效
-# 2. 完整保留互动：单击戳一戳、头部滑动摸头（累计涨好感解锁爱心）、按住拖拽与松手抛掷落地物理
-# 3. 系统内录互动（Android 10+ AudioPlaybackCapture）：
-#    - 听歌律动：实时读取手机内部播放的音乐音量与节拍，大肥鱼跟着音乐节奏摇晃跳舞
-#    - 看视频互动：可截取手机正在播放的视频/播客声音片段，转文字后让大肥鱼实时陪聊吐槽
-# 4. 语音识别（ASR）：支持调用安卓系统自带语音识别，或通过 OpenAI 兼容 /audio/transcriptions 接口识别
-# 5. 自定义第三方 OpenAI 接口：在 App 右上角「⚙️ 设置」中可自由填写任意 Base URL、API Key、模型名与人设提示词
 # ==============================================================================
 
 name: Build DeepSeek Whale Android APK
@@ -52,7 +43,6 @@ jobs:
           if [ -d "/tmp/dsh-coopanion/assets" ]; then
             cp -r /tmp/dsh-coopanion/assets /tmp/whale-android/app/src/main/assets/www/assets || true
           fi
-          # 生成资源索引清单，方便前端自动定位大肥鱼贴图与模型文件
           python3 - << 'PY'
           import os, json
           root = '/tmp/whale-android/app/src/main/assets/www'
@@ -66,14 +56,18 @@ jobs:
           print(f"Extracted {len(files)} files from takboo/dsh-coopanion")
           PY
 
-      - name: 3. 配置 JDK 17 与 Android 编译环境
+      - name: 3. 配置 JDK 17 编译环境
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 4. 挂载 Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 4. 挂载预装 Android SDK 并自动签收全部协议
+        run: |
+          export ANDROID_SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER=$(find "$ANDROID_SDK_ROOT/cmdline-tools" -name sdkmanager | sort -V | tail -n 1)
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
 
       - name: 5. 生成独立安卓工程（含系统声音内录 AudioPlaybackCapture + 语音识别 + OpenAI 接口）
         run: |
@@ -91,11 +85,11 @@ jobs:
           os.makedirs(www_dir, exist_ok=True)
 
           # 1. settings.gradle & build.gradle
-          with open(os.path.join(base, 'settings.gradle'), 'w') as f:
+          with open(os.path.join(base, 'settings.gradle'), 'w', encoding='utf-8') as f:
               f.write("rootProject.name = 'WhaleCompanion'\ninclude ':app'\n")
 
-          with open(os.path.join(base, 'build.gradle'), 'w') as f:
-              f.write(textwrap.dedent("""\
+          with open(os.path.join(base, 'build.gradle'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""\
               buildscript {
                   repositories {
                       google()
@@ -113,11 +107,11 @@ jobs:
               }
               """))
 
-          with open(os.path.join(base, 'gradle.properties'), 'w') as f:
+          with open(os.path.join(base, 'gradle.properties'), 'w', encoding='utf-8') as f:
               f.write("android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\n")
 
-          with open(os.path.join(base, 'app/build.gradle'), 'w') as f:
-              f.write(textwrap.dedent("""\
+          with open(os.path.join(base, 'app/build.gradle'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""\
               plugins {
                   id 'com.android.application'
               }
@@ -149,8 +143,8 @@ jobs:
               """))
 
           # 2. AndroidManifest.xml (含 RECORD_AUDIO 与 FOREGROUND_SERVICE_MEDIA_PROJECTION)
-          with open(os.path.join(base, 'app/src/main/AndroidManifest.xml'), 'w') as f:
-              f.write(textwrap.dedent("""\
+          with open(os.path.join(base, 'app/src/main/AndroidManifest.xml'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""\
               <?xml version="1.0" encoding="utf-8"?>
               <manifest xmlns:android="http://schemas.android.com/apk/res/android">
                   <uses-permission android:name="android.permission.INTERNET" />
@@ -185,8 +179,8 @@ jobs:
               """))
 
           # 3. SystemAudioCaptureService.java (使用 Android 10+ AudioPlaybackCapture 捕获系统音乐/视频声音)
-          with open(os.path.join(java_dir, 'SystemAudioCaptureService.java'), 'w') as f:
-              f.write(textwrap.dedent("""\
+          with open(os.path.join(java_dir, 'SystemAudioCaptureService.java'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""\
               package com.takboo.whalecompanion;
 
               import android.app.Activity;
@@ -408,8 +402,8 @@ jobs:
               """))
 
           # 4. MainActivity.java (承载透明本地 Web 资源服务器 + 原生语音识别 + 系统内录桥接)
-          with open(os.path.join(java_dir, 'MainActivity.java'), 'w') as f:
-              f.write(textwrap.dedent("""\
+          with open(os.path.join(java_dir, 'MainActivity.java'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""\
               package com.takboo.whalecompanion;
 
               import android.Manifest;
@@ -594,9 +588,9 @@ jobs:
               }
               """))
 
-          # 5. 生成独立版前端页面 companion-standalone.html（自动加载大肥鱼资源 + 触摸物理 + 系统声音律动 + 自定义 OpenAI 接口）
+          # 5. 生成独立版前端页面 companion-standalone.html（使用 raw 字符串防止 \n 被 Python 提前转义）
           with open(os.path.join(www_dir, 'companion-standalone.html'), 'w', encoding='utf-8') as f:
-              f.write(textwrap.dedent("""\
+              f.write(textwrap.dedent(r"""\
               <!DOCTYPE html>
               <html lang="zh-CN">
               <head>
@@ -1227,12 +1221,17 @@ jobs:
           print("Android project generated successfully.")
           PY
 
-      - name: 6. 使用 Gradle 编译生成安卓 APK
+      - name: 6. 安装匹配的 Gradle 8.5 环境
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.5'
+
+      - name: 7. 使用 Gradle 编译生成安卓 APK
         working-directory: /tmp/whale-android
         run: |
           gradle assembleDebug --no-daemon
 
-      - name: 7. 上传编译好的安卓 APK 安装包
+      - name: 8. 上传编译好的安卓 APK 安装包
         uses: actions/upload-artifact@v4
         with:
           name: DeepSeek-Whale-Android-APK
