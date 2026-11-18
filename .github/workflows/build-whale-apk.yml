@@ -1419,7 +1419,7 @@ jobs:
                                   @Override public void onResults(Bundle results) {
                                       ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                                       if (matches != null && !matches.isEmpty()) {
-                                          String text = matches.getString(0).replace("'", "\\'");
+                                          String text = matches.get(0).replace("'", "\\'");
                                           evalPanelJs("window.onVoiceResult && window.onVoiceResult('" + text + "');");
                                       }
                                   }
