@@ -1,24 +1,5 @@
 # ==============================================================================
-# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓独立伴侣版 · 零代码云端一键自动打包配置（已修复版）
-# ==============================================================================
-#
-# 【完全不会编程？只需在浏览器里做完这 4 步（约 3 分钟），GitHub 会自动帮你生成安卓安装包 APK】
-#
-# 第 1 步：打开 https://github.com 登录你的账号（没有的话免费注册一个），点击右上角「+」号 ->「New repository」
-#         - Repository name（仓库名）随便填，比如：whale-android
-#         - 勾选「Add a README file」，然后滑到最下面点击绿色按钮「Create repository」
-#
-# 第 2 步：在新建好的仓库页面，点击「Add file」->「Create new file」
-#         - 在上方文件名输入框里，原封不动输入（包含前面的点和斜杠）：
-#           .github/workflows/build-whale-apk.yml
-#
-# 第 3 步：把当前这份文件的【全部内容】复制粘贴进去，点击右上角绿色按钮「Commit changes...」保存。
-#
-# 第 4 步：保存后会自动开始打包！点击仓库顶部的「Actions」标签页：
-#         - 你会看到一条正在转圈运行的任务（Build DeepSeek Whale Android APK），等待约 3~4 分钟变成绿色对勾 ✅
-#         - 点进这条任务，滑到页面最底部的「Artifacts」区域，点击「DeepSeek-Whale-Android-APK」即可下载压缩包，
-#           解压里面的 app-debug.apk 发到手机上安装即可！
-#
+# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓独立伴侣版 · 零代码云端一键自动打包配置（v4 终极修复版）
 # ==============================================================================
 
 name: Build DeepSeek Whale Android APK
@@ -89,7 +70,7 @@ jobs:
               f.write("rootProject.name = 'WhaleCompanion'\ninclude ':app'\n")
 
           with open(os.path.join(base, 'build.gradle'), 'w', encoding='utf-8') as f:
-              f.write(textwrap.dedent(r"""\
+              f.write(textwrap.dedent(r"""
               buildscript {
                   repositories {
                       google()
@@ -105,13 +86,13 @@ jobs:
                       mavenCentral()
                   }
               }
-              """))
+              """).lstrip())
 
           with open(os.path.join(base, 'gradle.properties'), 'w', encoding='utf-8') as f:
               f.write("android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\n")
 
           with open(os.path.join(base, 'app/build.gradle'), 'w', encoding='utf-8') as f:
-              f.write(textwrap.dedent(r"""\
+              f.write(textwrap.dedent(r"""
               plugins {
                   id 'com.android.application'
               }
@@ -136,15 +117,18 @@ jobs:
                   }
               }
               dependencies {
+                  implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+                  implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+                  implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
                   implementation 'androidx.appcompat:appcompat:1.6.1'
                   implementation 'androidx.core:core:1.12.0'
                   implementation 'androidx.webkit:webkit:1.9.0'
               }
-              """))
+              """).lstrip())
 
           # 2. AndroidManifest.xml (含 RECORD_AUDIO 与 FOREGROUND_SERVICE_MEDIA_PROJECTION)
           with open(os.path.join(base, 'app/src/main/AndroidManifest.xml'), 'w', encoding='utf-8') as f:
-              f.write(textwrap.dedent(r"""\
+              f.write(textwrap.dedent(r"""
               <?xml version="1.0" encoding="utf-8"?>
               <manifest xmlns:android="http://schemas.android.com/apk/res/android">
                   <uses-permission android:name="android.permission.INTERNET" />
@@ -176,11 +160,11 @@ jobs:
                           android:foregroundServiceType="mediaProjection" />
                   </application>
               </manifest>
-              """))
+              """).lstrip())
 
           # 3. SystemAudioCaptureService.java (使用 Android 10+ AudioPlaybackCapture 捕获系统音乐/视频声音)
           with open(os.path.join(java_dir, 'SystemAudioCaptureService.java'), 'w', encoding='utf-8') as f:
-              f.write(textwrap.dedent(r"""\
+              f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
 
               import android.app.Activity;
@@ -321,7 +305,6 @@ jobs:
                                               for (int i = 0; i < read; i++) bb.putShort(readBuffer[i]);
                                               pcmAccumulator.write(bb.array(), 0, read * 2);
                                           }
-                                          // 每满约 6 秒有效系统音频（60 帧 x 100ms），打包成 16kHz 单声道 WAV 送给前端识别
                                           if (activeFrames >= 60) {
                                               byte[] pcmBytes = pcmAccumulator.toByteArray();
                                               pcmAccumulator.reset();
@@ -351,8 +334,8 @@ jobs:
                       header.put("WAVE".getBytes());
                       header.put("fmt ".getBytes());
                       header.putInt(16);
-                      header.putShort((short) 1); // PCM
-                      header.putShort((short) 1); // Mono
+                      header.putShort((short) 1);
+                      header.putShort((short) 1);
                       header.putInt(sampleRate);
                       header.putInt((int) byteRate);
                       header.putShort((short) 2);
@@ -399,11 +382,11 @@ jobs:
                       }
                   }
               }
-              """))
+              """).lstrip())
 
-          # 4. MainActivity.java (承载透明本地 Web 资源服务器 + 原生语音识别 + 系统内录桥接)
+          # 4. MainActivity.java
           with open(os.path.join(java_dir, 'MainActivity.java'), 'w', encoding='utf-8') as f:
-              f.write(textwrap.dedent(r"""\
+              f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
 
               import android.Manifest;
@@ -586,11 +569,11 @@ jobs:
                       }
                   }
               }
-              """))
+              """).lstrip())
 
-          # 5. 生成独立版前端页面 companion-standalone.html（使用 raw 字符串防止 \n 被 Python 提前转义）
+          # 5. 生成独立版前端页面 companion-standalone.html
           with open(os.path.join(www_dir, 'companion-standalone.html'), 'w', encoding='utf-8') as f:
-              f.write(textwrap.dedent(r"""\
+              f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
               <html lang="zh-CN">
               <head>
@@ -612,7 +595,6 @@ jobs:
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                     color: var(--text);
                   }
-                  /* 顶部状态与快捷栏 */
                   .top-bar {
                     position: fixed; top: 14px; left: 14px; right: 14px; z-index: 100;
                     display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -627,7 +609,6 @@ jobs:
                     padding: 8px 14px; border-radius: 999px; font-size: 13px; cursor: pointer;
                   }
                   .btn.active { border-color: var(--accent); color: var(--accent); }
-                  /* 音浪指示条 */
                   .audio-meter {
                     width: 56px; height: 8px; background: rgba(255,255,255,0.12);
                     border-radius: 4px; overflow: hidden;
@@ -636,14 +617,12 @@ jobs:
                     width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8);
                     transition: width 0.08s linear;
                   }
-                  /* 小窝椭圆锚点 */
                   .npc-home-nest {
                     position: fixed; bottom: 38px; left: 50%; transform: translateX(-50%);
                     width: 150px; height: 34px; border-radius: 50%;
                     background: rgba(56, 189, 248, 0.16); border: 1.5px dashed rgba(56, 189, 248, 0.45);
                     pointer-events: none; z-index: 5;
                   }
-                  /* 大肥鱼角色舞台容器 */
                   #pet-stage {
                     position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%);
                     width: 220px; height: 220px; z-index: 20; touch-action: none;
@@ -653,7 +632,6 @@ jobs:
                   #pet-stage img, #pet-stage canvas, #pet-stage iframe {
                     max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none;
                   }
-                  /* 角色头顶回复气泡 */
                   #speech-bubble {
                     position: fixed; bottom: 280px; left: 50%; transform: translateX(-50%);
                     max-width: 86vw; min-width: 180px; background: #ffffff; color: #0f172a;
@@ -665,7 +643,6 @@ jobs:
                     content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
                     border-width: 8px 8px 0; border-style: solid; border-color: #ffffff transparent;
                   }
-                  /* 底部聊天与语音控制栏 */
                   .chat-dock {
                     position: fixed; bottom: 0; left: 0; right: 0; z-index: 80;
                     background: var(--card); border-top: 1px solid rgba(255,255,255,0.1);
@@ -678,7 +655,6 @@ jobs:
                     padding: 10px 16px; font-size: 14px; outline: none;
                     user-select: text; -webkit-user-select: text;
                   }
-                  /* 设置弹窗 */
                   .modal {
                     position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200;
                     display: none; align-items: center; justify-content: center; padding: 16px;
@@ -725,7 +701,6 @@ jobs:
                   <button class="btn active" onclick="sendChatMessage()">发送</button>
                 </div>
 
-                <!-- 第三方 OpenAI 与系统声音伴侣设置弹窗 -->
                 <div class="modal" id="settings-modal">
                   <div class="modal-box">
                     <h3 style="margin-top:0;">⚙️ 自定义 OpenAI 接口与伴侣设置</h3>
@@ -764,7 +739,6 @@ jobs:
                 </div>
 
                 <script>
-                  // 1. 本地持久化配置与亲密度存档
                   const DEFAULT_CFG = {
                     baseUrl: 'https://api.deepseek.com/v1',
                     apiKey: '',
@@ -785,13 +759,12 @@ jobs:
                     lastPointerX: 0, lastPointerY: 0,
                     mouthOpen: 0,
                     beatBounce: 0,
-                    mood: 'calm', // calm, happy, love, thinking, listening, dancing
+                    mood: 'calm',
                     sysAudioActive: false
                   };
 
                   document.getElementById('intimacy-count').textContent = intimacy;
 
-                  // 2. 尝试加载提取自 takboo/dsh-coopanion 的真实大肥鱼贴图，并提供高还原度 Canvas 动态骨骼兜底
                   let whaleSprites = [];
                   fetch('whale-assets-manifest.json')
                     .then(r => r.json())
@@ -804,7 +777,6 @@ jobs:
                       });
                     }).catch(() => {});
 
-                  // 3. 绘制大肥鱼动态呼吸、眨眼、动嘴、摸头爱心与音乐律动摇摆
                   const canvas = document.getElementById('whale-fallback-canvas');
                   const ctx = canvas.getContext('2d');
                   let tick = 0;
@@ -822,18 +794,15 @@ jobs:
                     ctx.translate(110, 125 + breathY);
                     ctx.rotate(swayAngle);
 
-                    // 如果成功加载了仓库自带的整图缩略图则优先绘制
                     const thumb = whaleSprites.find(s => s.src.includes('thumb') || s.src.includes('icon') || s.src.includes('preview'));
                     if (thumb && thumb.img.complete && thumb.img.naturalWidth > 0) {
                       const scale = 1 + petState.beatBounce * 0.08;
                       ctx.scale(scale, 2 - scale);
                       ctx.drawImage(thumb.img, -80, -80, 160, 160);
                     } else {
-                      // 矢量大肥鱼（蓝白圆滚滚小鲸鱼 + 尾巴摆动 + 眨眼 + 流式动嘴）
                       const squash = 1 + petState.beatBounce * 0.12;
                       ctx.scale(squash, 2 - squash);
 
-                      // 尾巴摆动
                       ctx.save();
                       ctx.translate(52, 18);
                       ctx.rotate(Math.sin(tick * 2.5) * 0.25);
@@ -843,19 +812,16 @@ jobs:
                       ctx.fill();
                       ctx.restore();
 
-                      // 身体上半（深海蓝）
                       ctx.fillStyle = '#3b82f6';
                       ctx.beginPath();
                       ctx.ellipse(0, 0, 64, 52, 0, 0, Math.PI * 2);
                       ctx.fill();
 
-                      // 肚皮（奶白）
                       ctx.fillStyle = '#f8fafc';
                       ctx.beginPath();
                       ctx.ellipse(-4, 16, 52, 34, 0, 0, Math.PI);
                       ctx.fill();
 
-                      // 两侧小鳍（挥手互动）
                       ctx.save();
                       ctx.translate(-52, 10);
                       ctx.rotate(petState.mood === 'happy' || petState.mood === 'love' ? Math.sin(tick * 6) * 0.5 : -0.3);
@@ -865,7 +831,6 @@ jobs:
                       ctx.fill();
                       ctx.restore();
 
-                      // 眼睛（定期眨眼 / 开心弯眼）
                       const isBlink = Math.sin(tick * 0.45) > 0.97;
                       ctx.strokeStyle = '#0f172a';
                       ctx.fillStyle = '#0f172a';
@@ -887,12 +852,10 @@ jobs:
                         }
                       });
 
-                      // 红晕
                       ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
                       ctx.beginPath(); ctx.ellipse(-34, 4, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill();
                       ctx.beginPath(); ctx.ellipse(24, 4, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill();
 
-                      // 嘴巴（流式输出时根据 mouthOpen 开合）
                       ctx.fillStyle = '#f43f5e';
                       if (petState.mouthOpen > 0.05) {
                         ctx.beginPath();
@@ -905,7 +868,6 @@ jobs:
                       }
                     }
 
-                    // 头顶状态特效（思考小圆泡 / 爱心 / 音符）
                     ctx.restore();
                     if (petState.mood === 'love') {
                       ctx.font = '24px sans-serif';
@@ -924,13 +886,12 @@ jobs:
                     requestAnimationFrame(renderWhaleFrame);
                   }
 
-                  // 4. 触摸互动：戳一戳、摸头（累计 > 320px 涨亲密度）、拖拽与抛掷落地物理
                   const stage = document.getElementById('pet-stage');
                   function updatePhysics() {
                     if (!petState.dragging) {
                       const floorY = window.innerHeight - 158;
                       if (petState.y < floorY || Math.abs(petState.vy) > 0.5 || Math.abs(petState.vx) > 0.5) {
-                        petState.vy += 0.85; // 重力
+                        petState.vy += 0.85;
                         petState.x += petState.vx;
                         petState.y += petState.vy;
                         petState.vx *= 0.96;
@@ -969,7 +930,6 @@ jobs:
                     const dy = e.clientY - petState.lastPointerY;
                     const dist = Math.hypot(dx, dy);
 
-                    // 如果在头部区域小幅来回抚摸，计入摸头距离
                     if (Math.abs(dy) < 18 && Math.abs(dx) < 35) {
                       petState.rubDistance += dist;
                       if (petState.rubDistance > 320) {
@@ -995,7 +955,6 @@ jobs:
                     if (!petState.dragging) return;
                     petState.dragging = false;
                     if (Math.hypot(petState.vx, petState.vy) < 2 && petState.rubDistance < 60) {
-                      // 轻点戳一戳
                       petState.beatBounce = 0.55;
                       petState.mood = 'happy';
                       const pokes = ['戳我干嘛呀～今天在忙什么？', '我在桌边陪着你呢！', '点一下录音按钮就可以直接跟我说话哦～'];
@@ -1003,7 +962,6 @@ jobs:
                     }
                   });
 
-                  // 5. 气泡展示与流式口型控制
                   let bubbleTimer = null;
                   function showBubble(text, durationMs = 8000) {
                     const el = document.getElementById('speech-bubble');
@@ -1015,7 +973,6 @@ jobs:
                     }
                   }
 
-                  // 6. 系统声音内录回调（听歌节奏摇摆 + 看视频台词识别互动）
                   function toggleSystemAudio() {
                     if (!window.AndroidBridge) {
                       showBubble('当前在普通浏览器预览，安装 APK 后即可捕获手机系统声音！');
@@ -1072,7 +1029,6 @@ jobs:
                     }
                   };
 
-                  // 7. 麦克风语音输入（优先安卓原生语音识别，支持回退 Whisper 接口）
                   function triggerVoiceInput() {
                     if (window.AndroidBridge) {
                       petState.mood = 'listening';
@@ -1110,7 +1066,6 @@ jobs:
                     return data.text || '';
                   }
 
-                  // 8. 自定义第三方 OpenAI 格式流式对话 + 实时动嘴同步
                   async function sendChatMessage() {
                     const input = document.getElementById('chat-input');
                     const text = input.value.trim();
@@ -1169,7 +1124,7 @@ jobs:
                             const delta = parsed.choices?.[0]?.delta?.content || '';
                             if (delta) {
                               reply += delta;
-                              petState.mouthOpen = 0.9; // 收到流式新字时张嘴
+                              petState.mouthOpen = 0.9;
                               showBubble(reply, 12000);
                             }
                           } catch (_) {}
@@ -1185,7 +1140,6 @@ jobs:
                     }
                   }
 
-                  // 9. 设置弹窗逻辑
                   function openSettings() {
                     document.getElementById('cfg-base-url').value = config.baseUrl;
                     document.getElementById('cfg-api-key').value = config.apiKey;
@@ -1217,7 +1171,7 @@ jobs:
                 </script>
               </body>
               </html>
-              """))
+              """).lstrip())
           print("Android project generated successfully.")
           PY
 
