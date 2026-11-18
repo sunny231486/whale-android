@@ -1,19 +1,29 @@
 # ==============================================================================
-# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓全局悬浮伴侣版 · v5 完整优化版自动打包配置
+# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓全局悬浮伴侣版 · v6 终极精修版自动打包配置
 # ==============================================================================
-# ✨ v5 全部特性汇总：
-# 1. 双接口引擎（第三方 OpenAI 格式 + 谷歌官方 Google AI Studio Gemini API）：
-#    - 内置「🔗 连接并拉取可用模型」按钮，点击后自动请求 /models 接口验证连通性并生成可用模型下拉列表。
-#    - Google AI Studio 模式下支持原生 Gemini 多模态音频直传（系统内录视频/音乐声音可直接由 Gemini 听音互动，无需额外配置语音转写接口）。
-# 2. 真·全局跨应用悬浮窗（TYPE_APPLICATION_OVERLAY）：可在桌面、微信、浏览器、视频 App 上方自由显示，窗口边界动态收缩，绝不遮挡其他区域点击。
-# 3. 自由吸附 + 待机只露半个头：拖到底部边缘向上探出半个头，拖到左右边缘歪头侧向探出半个头。
-# 4. 点击跳出站好 + 随机 10 句问候语 + 双按钮：点半个头立即抛物线跃起站好，随机弹出 10 句问候语之一，并展开「🎤 语音」与「💬 对话」双胶囊按钮。
-# 5. 桌宠大小与气泡字号自由无级调节（90dp~260dp 尺寸缩放 + 8 套原版配色切换 + 原仓库真实大肥鱼贴图提取挂载）。
-# 6. KLWP 同款手机状态感知 + 30 分钟主动搭话：读取电量/充电/温度、下个系统闹钟、通知栏未读短信/未接电话/微信未读、正在播放的歌名，以及免 Key 实时天气（Open-Meteo）。
-# 7. 智能省电与即时事件：锁屏息屏自动暂停定时请求；插拔充电器、低电量(<20%)、新未接来电、切歌时立即探头互动。
+# ✨ v6 针对实机体验的 4 大核心修复与升级：
+# 1. 【QQ 企鹅级小巧尺寸 + 贴图真缩放 + 双窗体零遮挡 + 原生 120帧丝滑拖拽】：
+#    - 默认大小缩小为 56dp（与 QQ 右上角小企鹅完全一致，支持 32dp ~ 150dp 自由无级调节）。
+#    - 修复贴图不随滑条缩放的问题：Canvas 与原版贴图 100% 实时跟随窗口像素等比缩放。
+#    - 彻底消除周围透明遮挡区：将「大肥鱼本体」与「对话气泡面板」拆分为两个独立的原生悬浮窗！
+#      待机半探头时，窗口物理尺寸仅有 32dp×56dp（仅包裹露出的半个脑袋），其余屏幕区域 100% 零遮挡；
+#      气泡与按钮窗口平时完全隐藏（View.GONE，0×0 像素），仅在点击唤醒或说话时才在旁边浮现。
+#    - 丝滑拖动：改用 Android 原生 View.OnTouchListener 硬件级坐标跟随，指哪打哪，绝无卡顿与偏移。
+# 2. 【修复等待回复时自动收起的问题】：
+#    - 在语音识别中、等待 AI 思考中、流式输出文字期间，严格锁定窗口为展开状态（附带实时耗时读秒），绝不自动收起。
+#    - 回复完成后气泡至少保持显示 25 秒（或点击气泡手动收起），并在输入框上方保留最近一条回复记录。
+# 3. 【SillyTavern（酒馆）风格预设编辑器 + 0.5 秒极速秒回（关闭思考链）】：
+#    - 内置酒馆式模块化预设编辑器：支持切换/导入/导出预设，包含独立开关的「主系统指令」「角色卡 {{char}}」
+#      「用户人设 {{user}}」「手机状态世界书 {{battery}}/{{weather}}/{{song}}」「尾置强约束 Post-History」。
+#    - 新增「思考预算 (Thinking Budget)」开关：默认设为 0（关闭 Gemini / DeepSeek 漫长的内部思维链），
+#      并将天气查询改为后台异步缓存，不再阻塞对话请求，实现 0.5 秒极速秒回！
+# 4. 【精准识别 Salt Player（椒盐音乐 com.salt.music）与全局播放器】：
+#    - 升级为 KLWP 同款三通道媒体识别引擎：原生调用 MediaSessionManager.getActiveSessions() 读取
+#      MediaMetadata（歌名/歌手/专辑）+ 解析 Notification.EXTRA_MEDIA_SESSION Token + 监听
+#      com.android.music.metachanged 广播，针对 com.salt.music 专项适配并实时注册切歌回调。
 # ==============================================================================
 
-name: Build DeepSeek Whale Android APK v5
+name: Build DeepSeek Whale Android APK v6
 
 on:
   push:
@@ -27,7 +37,7 @@ jobs:
       - name: 1. 检出当前仓库
         uses: actions/checkout@v4
 
-      - name: 2. 拉取 takboo/dsh-coopanion 官方仓库并提取原版大肥鱼贴图与资源
+      - name: 2. 拉取 takboo/dsh-coopanion 官方仓库并提取原版大肥鱼贴图
         run: |
           git clone --depth 1 https://github.com/takboo/dsh-coopanion.git /tmp/dsh-coopanion
           mkdir -p /tmp/whale-android/app/src/main/assets/www
@@ -44,8 +54,6 @@ jobs:
           root = '/tmp/whale-android/app/src/main/assets/www'
           files = []
           whale_images = []
-          figure_meta = {}
-
           for dirpath, _, filenames in os.walk(root):
               for f in filenames:
                   full = os.path.join(dirpath, f)
@@ -54,12 +62,6 @@ jobs:
                   low = rel.lower()
                   if low.endswith(('.png', '.webp', '.svg', '.gif')) and ('whale' in low or 'icon' in low or 'figure' in low or 'assets' in low):
                       whale_images.append(rel)
-                  if f == 'figure.json' and 'whale' in low:
-                      try:
-                          with open(full, 'r', encoding='utf-8') as jf:
-                              figure_meta = json.load(jf)
-                      except Exception:
-                          pass
 
           preferred = []
           for kw in ['whale-official-icon.png', 'preview', 'thumb', 'full', 'body', 'idle', 'stand', 'whale', 'icon']:
@@ -67,14 +69,9 @@ jobs:
                   if kw in img.lower() and img not in preferred:
                       preferred.append(img)
 
-          manifest_data = {
-              'files': sorted(files),
-              'whaleImages': preferred,
-              'figureMeta': figure_meta
-          }
           with open(os.path.join(root, 'whale-assets-manifest.json'), 'w', encoding='utf-8') as out:
-              json.dump(manifest_data, out, ensure_ascii=False, indent=2)
-          print(f"Extracted {len(files)} total files, {len(preferred)} whale textures.")
+              json.dump({'files': sorted(files), 'whaleImages': preferred}, out, ensure_ascii=False, indent=2)
+          print(f"Extracted {len(files)} files, {len(preferred)} whale textures.")
           PY
 
       - name: 3. 配置 JDK 17 编译环境
@@ -90,7 +87,7 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
 
-      - name: 5. 生成 v5 独立安卓工程（双接口引擎 + 模型拉取 + 全局悬浮窗 + KLWP 状态感知）
+      - name: 5. 生成 v6 安卓工程（双悬浮窗零遮挡 + 原生丝滑拖拽 + 酒馆预设 + Salt Player 精准识曲）
         run: |
           python3 - << 'PY'
           import os, textwrap
@@ -103,9 +100,9 @@ jobs:
           os.makedirs(res_values, exist_ok=True)
           os.makedirs(www_dir, exist_ok=True)
 
-          # 1. Gradle 配置文件
+          # 1. Gradle 配置
           with open(os.path.join(base, 'settings.gradle'), 'w', encoding='utf-8') as f:
-              f.write("rootProject.name = 'WhaleCompanionV5'\ninclude ':app'\n")
+              f.write("rootProject.name = 'WhaleCompanionV6'\ninclude ':app'\n")
 
           with open(os.path.join(base, 'build.gradle'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
@@ -141,8 +138,8 @@ jobs:
                       applicationId "com.takboo.whalecompanion"
                       minSdk 29
                       targetSdk 34
-                      versionCode 5
-                      versionName "5.1.0-gemini-openai-floating"
+                      versionCode 6
+                      versionName "6.0.0-tavern-mini-overlay"
                   }
                   buildTypes {
                       debug {
@@ -164,7 +161,7 @@ jobs:
               }
               """).lstrip())
 
-          # 2. AndroidManifest.xml
+          # 2. AndroidManifest.xml (增加 queries 声明以便 Android 11+ 可见 com.salt.music 等播放器包名)
           with open(os.path.join(base, 'app/src/main/AndroidManifest.xml'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <?xml version="1.0" encoding="utf-8"?>
@@ -178,6 +175,13 @@ jobs:
                   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
                   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
                   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+                  <queries>
+                      <package android:name="com.salt.music" />
+                      <intent>
+                          <action android:name="android.media.browse.MediaBrowserService" />
+                      </intent>
+                  </queries>
 
                   <application
                       android:allowBackup="true"
@@ -225,15 +229,28 @@ jobs:
               </manifest>
               """).lstrip())
 
-          # 3. WhaleNotificationListener.java
+          # 3. WhaleNotificationListener.java (KLWP 级三通道音乐识别：MediaSessionManager + Token 解析 + 标准音乐广播，专项支持 com.salt.music 椒盐音乐)
           with open(os.path.join(java_dir, 'WhaleNotificationListener.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
 
               import android.app.Notification;
+              import android.content.BroadcastReceiver;
+              import android.content.ComponentName;
+              import android.content.Context;
+              import android.content.Intent;
+              import android.content.IntentFilter;
+              import android.media.MediaMetadata;
+              import android.media.session.MediaController;
+              import android.media.session.MediaSession;
+              import android.media.session.MediaSessionManager;
+              import android.media.session.PlaybackState;
+              import android.os.Build;
               import android.os.Bundle;
               import android.service.notification.NotificationListenerService;
               import android.service.notification.StatusBarNotification;
+              import java.util.ArrayList;
+              import java.util.List;
 
               public class WhaleNotificationListener extends NotificationListenerService {
                   public static volatile boolean isConnected = false;
@@ -242,12 +259,55 @@ jobs:
                   public static volatile int unreadSocialCount = 0;
                   public static volatile String currentSongTitle = "";
                   public static volatile String currentSongArtist = "";
+                  public static volatile String currentMusicApp = "";
                   private static String lastNotifiedSong = "";
+
+                  private MediaSessionManager mediaSessionManager;
+                  private final List<MediaController> registeredControllers = new ArrayList<>();
+
+                  private final MediaSessionManager.OnActiveSessionsChangedListener sessionsChangedListener = controllers -> {
+                      bindMediaControllers(controllers);
+                      refreshActiveNotifications();
+                  };
+
+                  private final BroadcastReceiver mediaBroadcastReceiver = new BroadcastReceiver() {
+                      @Override
+                      public void onReceive(Context context, Intent intent) {
+                          if (intent == null) return;
+                          String track = intent.getStringExtra("track");
+                          String artist = intent.getStringExtra("artist");
+                          if (track != null && !track.trim().isEmpty()) {
+                              updateSongState(track.trim(), artist != null ? artist.trim() : "", "broadcast");
+                          }
+                          refreshActiveNotifications();
+                      }
+                  };
 
                   @Override
                   public void onListenerConnected() {
                       super.onListenerConnected();
                       isConnected = true;
+                      try {
+                          mediaSessionManager = (MediaSessionManager) getSystemService(Context.MEDIA_SESSION_SERVICE);
+                          if (mediaSessionManager != null) {
+                              ComponentName cn = new ComponentName(this, WhaleNotificationListener.class);
+                              mediaSessionManager.addOnActiveSessionsChangedListener(sessionsChangedListener, cn);
+                              bindMediaControllers(mediaSessionManager.getActiveSessions(cn));
+                          }
+                      } catch (Exception ignored) {}
+
+                      try {
+                          IntentFilter mf = new IntentFilter();
+                          mf.addAction("com.android.music.metachanged");
+                          mf.addAction("com.android.music.playstatechanged");
+                          mf.addAction("com.salt.music.metachanged");
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                              registerReceiver(mediaBroadcastReceiver, mf, Context.RECEIVER_EXPORTED);
+                          } else {
+                              registerReceiver(mediaBroadcastReceiver, mf);
+                          }
+                      } catch (Exception ignored) {}
+
                       refreshActiveNotifications();
                   }
 
@@ -255,6 +315,78 @@ jobs:
                   public void onListenerDisconnected() {
                       super.onListenerDisconnected();
                       isConnected = false;
+                      try {
+                          if (mediaSessionManager != null) {
+                              mediaSessionManager.removeOnActiveSessionsChangedListener(sessionsChangedListener);
+                          }
+                          unregisterReceiver(mediaBroadcastReceiver);
+                      } catch (Exception ignored) {}
+                  }
+
+                  private void bindMediaControllers(List<MediaController> controllers) {
+                      if (controllers == null) return;
+                      registeredControllers.clear();
+                      for (final MediaController mc : controllers) {
+                          registeredControllers.add(mc);
+                          readFromMediaController(mc);
+                          try {
+                              mc.registerCallback(new MediaController.Callback() {
+                                  @Override
+                                  public void onMetadataChanged(MediaMetadata metadata) {
+                                      readFromMediaController(mc);
+                                  }
+                                  @Override
+                                  public void onPlaybackStateChanged(PlaybackState state) {
+                                      readFromMediaController(mc);
+                                  }
+                              });
+                          } catch (Exception ignored) {}
+                      }
+                  }
+
+                  private boolean readFromMediaController(MediaController mc) {
+                      if (mc == null) return false;
+                      try {
+                          String pkg = mc.getPackageName() != null ? mc.getPackageName() : "";
+                          PlaybackState ps = mc.getPlaybackState();
+                          boolean isPlaying = ps != null && (ps.getState() == PlaybackState.STATE_PLAYING || ps.getState() == PlaybackState.STATE_BUFFERING);
+                          MediaMetadata meta = mc.getMetadata();
+                          if (meta != null) {
+                              String title = meta.getString(MediaMetadata.METADATA_KEY_TITLE);
+                              if (title == null || title.isEmpty()) {
+                                  title = meta.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
+                              }
+                              String artist = meta.getString(MediaMetadata.METADATA_KEY_ARTIST);
+                              if (artist == null || artist.isEmpty()) {
+                                  artist = meta.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST);
+                              }
+                              if (artist == null || artist.isEmpty()) {
+                                  artist = meta.getString(MediaMetadata.METADATA_KEY_ALBUM);
+                              }
+                              if (title != null && !title.trim().isEmpty()) {
+                                  // 优先采纳正在播放的会话或 Salt Player (com.salt.music)
+                                  if (isPlaying || pkg.contains("com.salt.music") || currentSongTitle.isEmpty()) {
+                                      updateSongState(title.trim(), artist != null ? artist.trim() : "", pkg);
+                                      return true;
+                                  }
+                              }
+                          }
+                      } catch (Exception ignored) {}
+                      return false;
+                  }
+
+                  private synchronized void updateSongState(String title, String artist, String pkg) {
+                      if (title == null || title.isEmpty()) return;
+                      currentSongTitle = title;
+                      currentSongArtist = artist != null ? artist : "";
+                      currentMusicApp = pkg != null ? pkg : "";
+                      String fullSong = currentSongTitle + (currentSongArtist.isEmpty() ? "" : " - " + currentSongArtist);
+                      if (!fullSong.equals(lastNotifiedSong)) {
+                          lastNotifiedSong = fullSong;
+                          if (FloatingOverlayService.instance != null) {
+                              FloatingOverlayService.instance.notifySongChanged(fullSong);
+                          }
+                      }
                   }
 
                   @Override
@@ -262,14 +394,7 @@ jobs:
                       int prevMissed = missedCallCount;
                       refreshActiveNotifications();
                       if (missedCallCount > prevMissed && FloatingOverlayService.instance != null) {
-                          FloatingOverlayService.instance.notifyInstantEvent("missed_call", "主人，刚才好像有未接来电哦，要看看是谁打来的吗？");
-                      }
-                      if (!currentSongTitle.isEmpty() && !currentSongTitle.equals(lastNotifiedSong)) {
-                          lastNotifiedSong = currentSongTitle;
-                          if (FloatingOverlayService.instance != null) {
-                              String songInfo = currentSongTitle + (currentSongArtist.isEmpty() ? "" : " - " + currentSongArtist);
-                              FloatingOverlayService.instance.notifySongChanged(songInfo);
-                          }
+                          FloatingOverlayService.instance.notifyInstantEvent("missed_call", "主人，刚才有未接来电哦，快看看是谁打来的吧！");
                       }
                   }
 
@@ -280,13 +405,23 @@ jobs:
 
                   public void refreshActiveNotifications() {
                       try {
+                          // 1. 先通过 MediaSessionManager 扫描所有活跃播放器（Salt Player 首选通道）
+                          if (mediaSessionManager != null) {
+                              ComponentName cn = new ComponentName(this, WhaleNotificationListener.class);
+                              List<MediaController> activeList = mediaSessionManager.getActiveSessions(cn);
+                              if (activeList != null) {
+                                  for (MediaController mc : activeList) {
+                                      if (readFromMediaController(mc)) break;
+                                  }
+                              }
+                          }
+
+                          // 2. 扫描状态栏通知（解析 MediaSession.Token + Salt Player 包名 + 短信/电话/社交）
                           StatusBarNotification[] list = getActiveNotifications();
                           if (list == null) return;
                           int missed = 0;
                           int sms = 0;
                           int social = 0;
-                          String song = "";
-                          String artist = "";
 
                           for (StatusBarNotification sbn : list) {
                               String pkg = sbn.getPackageName() != null ? sbn.getPackageName().toLowerCase() : "";
@@ -295,16 +430,31 @@ jobs:
                               String cat = n.category != null ? n.category : "";
                               Bundle extras = n.extras;
                               String title = extras != null && extras.getCharSequence(Notification.EXTRA_TITLE) != null
-                                      ? extras.getCharSequence(Notification.EXTRA_TITLE).toString() : "";
+                                      ? extras.getCharSequence(Notification.EXTRA_TITLE).toString().trim() : "";
                               String text = extras != null && extras.getCharSequence(Notification.EXTRA_TEXT) != null
-                                      ? extras.getCharSequence(Notification.EXTRA_TEXT).toString() : "";
+                                      ? extras.getCharSequence(Notification.EXTRA_TEXT).toString().trim() : "";
+                              String subText = extras != null && extras.getCharSequence(Notification.EXTRA_SUB_TEXT) != null
+                                      ? extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString().trim() : "";
 
-                              if (extras != null && (extras.containsKey(Notification.EXTRA_MEDIA_SESSION)
-                                      || "transport".equals(cat)
-                                      || pkg.contains("music") || pkg.contains("spotify") || pkg.contains("netease") || pkg.contains("kugou") || pkg.contains("qqmusic"))) {
-                                  if (!title.isEmpty()) {
-                                      song = title;
-                                      artist = text;
+                              // 检查是否携带 MediaSession.Token 或属于 com.salt.music (椒盐音乐) 等播放器
+                              boolean isMusicPkg = pkg.contains("com.salt.music") || pkg.contains("salt")
+                                      || pkg.contains("music") || pkg.contains("spotify")
+                                      || pkg.contains("netease") || pkg.contains("kugou")
+                                      || pkg.contains("kuwo") || pkg.contains("qqmusic")
+                                      || pkg.contains("apple.android.music") || pkg.contains("foobar")
+                                      || pkg.contains("poweramp") || pkg.contains("player");
+
+                              if (extras != null && (extras.containsKey(Notification.EXTRA_MEDIA_SESSION) || "transport".equals(cat) || isMusicPkg)) {
+                                  try {
+                                      MediaSession.Token token = extras.getParcelable(Notification.EXTRA_MEDIA_SESSION);
+                                      if (token != null) {
+                                          MediaController mc = new MediaController(this, token);
+                                          if (readFromMediaController(mc)) continue;
+                                      }
+                                  } catch (Exception ignored) {}
+
+                                  if (!title.isEmpty() && !title.equals("Salt Player") && !title.equals("椒盐音乐")) {
+                                      updateSongState(title, !text.isEmpty() ? text : subText, pkg);
                                   }
                                   continue;
                               }
@@ -320,8 +470,6 @@ jobs:
                           missedCallCount = missed;
                           unreadSmsCount = sms;
                           unreadSocialCount = social;
-                          currentSongTitle = song;
-                          currentSongArtist = artist;
                       } catch (Exception ignored) {}
                   }
               }
@@ -387,6 +535,7 @@ jobs:
                               song += " - " + WhaleNotificationListener.currentSongArtist;
                           }
                           obj.put("currentSong", song);
+                          obj.put("musicApp", WhaleNotificationListener.currentMusicApp);
 
                           if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                               LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
@@ -513,9 +662,6 @@ jobs:
 
                           audioRecord.startRecording();
                           isCapturing = true;
-                          if (FloatingOverlayService.instance != null) {
-                              FloatingOverlayService.instance.dispatchSystemAudioStatus(true, "已开启系统声音律动");
-                          }
 
                           captureThread = new Thread(() -> {
                               short[] readBuffer = new short[1600];
@@ -599,9 +745,6 @@ jobs:
                               mediaProjection = null;
                           }
                       } catch (Exception ignored) {}
-                      if (FloatingOverlayService.instance != null) {
-                          FloatingOverlayService.instance.dispatchSystemAudioStatus(false, "已关闭系统声音律动");
-                      }
                   }
 
                   @Override
@@ -626,11 +769,12 @@ jobs:
               }
               """).lstrip())
 
-          # 6. FloatingOverlayService.java
+          # 6. FloatingOverlayService.java (v6 核心架构：拆分为「纯桌宠悬浮球窗口 petWebView」与「独立气泡面板窗口 panelWebView」，原生 Touch 拖拽零延迟，待机零多余透明区！)
           with open(os.path.join(java_dir, 'FloatingOverlayService.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
 
+              import android.annotation.SuppressLint;
               import android.app.Notification;
               import android.app.NotificationChannel;
               import android.app.NotificationManager;
@@ -640,6 +784,7 @@ jobs:
               import android.content.Context;
               import android.content.Intent;
               import android.content.IntentFilter;
+              import android.content.SharedPreferences;
               import android.graphics.Color;
               import android.graphics.PixelFormat;
               import android.os.Build;
@@ -651,6 +796,8 @@ jobs:
               import android.speech.SpeechRecognizer;
               import android.util.DisplayMetrics;
               import android.view.Gravity;
+              import android.view.MotionEvent;
+              import android.view.View;
               import android.view.WindowManager;
               import android.view.inputmethod.InputMethodManager;
               import android.webkit.JavascriptInterface;
@@ -666,19 +813,27 @@ jobs:
 
               public class FloatingOverlayService extends Service {
                   public static FloatingOverlayService instance;
-                  private static final String CHANNEL_ID = "WhaleFloatingOverlayChannel";
+                  private static final String CHANNEL_ID = "WhaleFloatingOverlayV6";
 
                   private WindowManager windowManager;
-                  private WindowManager.LayoutParams layoutParams;
-                  private WebView overlayWebView;
-                  private SpeechRecognizer speechRecognizer;
+                  // 窗口 1：纯粹的桌宠小图标窗口（默认 56dp，与 QQ 右上角小企鹅同尺寸，周围 0 透明边距！）
+                  private WebView petWebView;
+                  private WindowManager.LayoutParams petParams;
 
+                  // 窗口 2：独立的对话气泡 + 按钮小面板（平时 View.GONE 完全不存在，绝不挡屏幕）
+                  private WebView panelWebView;
+                  private WindowManager.LayoutParams panelParams;
+
+                  private SpeechRecognizer speechRecognizer;
                   private float density = 3.0f;
                   private int screenWidth = 1080;
                   private int screenHeight = 2400;
-                  private int petBaseDp = 150;
-                  private String currentMode = "peek";
-                  private String dockEdge = "bottom";
+
+                  private int petSizeDp = 58; // 默认 58dp（QQ 企鹅大小），可在 32dp ~ 150dp 自由调节
+                  private boolean isPeekMode = true; // true: 待机只露半个头 | false: 跳出站好
+                  private String dockEdge = "right"; // right | left | bottom（默认贴右侧，像 QQ 企鹅一样）
+                  private int anchorX = 900;
+                  private int anchorY = 600;
 
                   private final BroadcastReceiver systemEventReceiver = new BroadcastReceiver() {
                       @Override
@@ -686,15 +841,15 @@ jobs:
                           if (intent == null || intent.getAction() == null) return;
                           String act = intent.getAction();
                           if (Intent.ACTION_SCREEN_OFF.equals(act)) {
-                              evalJs("window.onScreenStateChanged && window.onScreenStateChanged(false);");
+                              evalPanelJs("window.onScreenStateChanged && window.onScreenStateChanged(false);");
                           } else if (Intent.ACTION_SCREEN_ON.equals(act)) {
-                              evalJs("window.onScreenStateChanged && window.onScreenStateChanged(true);");
+                              evalPanelJs("window.onScreenStateChanged && window.onScreenStateChanged(true);");
                           } else if (Intent.ACTION_POWER_CONNECTED.equals(act)) {
-                              notifyInstantEvent("power_connected", "哇！充上电啦⚡ 能量源源不断涌进来咯～");
+                              notifyInstantEvent("power_connected", "哇！充上电啦⚡ 能量满格涌进来咯～");
                           } else if (Intent.ACTION_POWER_DISCONNECTED.equals(act)) {
-                              notifyInstantEvent("power_disconnected", "拔掉充电线啦，今天也要元气满满地出发哦！");
+                              notifyInstantEvent("power_disconnected", "拔掉充电线啦，今天也要元气满满哦！");
                           } else if (Intent.ACTION_BATTERY_LOW.equals(act)) {
-                              notifyInstantEvent("battery_low", "主人主人，手机电量快见底啦🪫 快找个地方喂饱它吧！");
+                              notifyInstantEvent("battery_low", "主人，手机电量快见底啦🪫 快充会儿电吧！");
                           }
                       }
                   };
@@ -710,13 +865,17 @@ jobs:
                               PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
                       Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                              .setContentTitle("大肥鱼正在桌面陪伴你")
-                              .setContentText("点击打开设置面板 · 待机贴边露头中")
+                              .setContentTitle("大肥鱼桌面悬浮球运行中")
+                              .setContentText("点击进入预设与尺寸控制台")
                               .setSmallIcon(android.R.drawable.sym_def_app_icon)
                               .setContentIntent(pi)
                               .setPriority(NotificationCompat.PRIORITY_MIN)
                               .build();
                       startForeground(1001, notification);
+
+                      SharedPreferences sp = getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
+                      petSizeDp = sp.getInt("petSizeDp", 58);
+                      dockEdge = sp.getString("dockEdge", "right");
 
                       IntentFilter filter = new IntentFilter();
                       filter.addAction(Intent.ACTION_SCREEN_OFF);
@@ -726,10 +885,15 @@ jobs:
                       filter.addAction(Intent.ACTION_BATTERY_LOW);
                       registerReceiver(systemEventReceiver, filter);
 
-                      initOverlayWindow();
+                      initDualOverlayWindows();
                   }
 
-                  private void initOverlayWindow() {
+                  private int dp(int d) {
+                      return Math.round(d * density);
+                  }
+
+                  @SuppressLint("ClickableViewAccessibility")
+                  private void initDualOverlayWindows() {
                       if (!Settings.canDrawOverlays(this)) return;
                       windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
                       DisplayMetrics dm = getResources().getDisplayMetrics();
@@ -737,188 +901,376 @@ jobs:
                       screenWidth = dm.widthPixels;
                       screenHeight = dm.heightPixels;
 
-                      int wPx = dpToPx(110);
-                      int hPx = dpToPx(95);
+                      SharedPreferences sp = getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
+                      anchorX = sp.getInt("anchorX", screenWidth - dp(petSizeDp));
+                      anchorY = sp.getInt("anchorY", Math.round(screenHeight * 0.35f));
 
-                      layoutParams = new WindowManager.LayoutParams(
-                              wPx,
-                              hPx,
+                      final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                              .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                              .build();
+
+                      // 1. 初始化纯桌宠悬浮球窗口 petWebView
+                      petParams = new WindowManager.LayoutParams(
+                              dp(petSizeDp),
+                              dp(petSizeDp),
                               WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                               WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                                       | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                                       | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                               PixelFormat.TRANSLUCENT
                       );
-                      layoutParams.gravity = Gravity.TOP | Gravity.START;
-                      layoutParams.x = (screenWidth - wPx) / 2;
-                      layoutParams.y = screenHeight - hPx;
+                      petParams.gravity = Gravity.TOP | Gravity.START;
 
-                      overlayWebView = new WebView(this);
-                      overlayWebView.setBackgroundColor(Color.TRANSPARENT);
-                      overlayWebView.setVerticalScrollBarEnabled(false);
-                      overlayWebView.setHorizontalScrollBarEnabled(false);
-
-                      WebSettings s = overlayWebView.getSettings();
-                      s.setJavaScriptEnabled(true);
-                      s.setDomStorageEnabled(true);
-                      s.setMediaPlaybackRequiresUserGesture(false);
-
-                      final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
-                              .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-                              .build();
-
-                      overlayWebView.setWebViewClient(new WebViewClient() {
+                      petWebView = new WebView(this);
+                      petWebView.setBackgroundColor(Color.TRANSPARENT);
+                      petWebView.setVerticalScrollBarEnabled(false);
+                      petWebView.setHorizontalScrollBarEnabled(false);
+                      WebSettings ps = petWebView.getSettings();
+                      ps.setJavaScriptEnabled(true);
+                      ps.setDomStorageEnabled(true);
+                      petWebView.setWebViewClient(new WebViewClient() {
                           @Override
                           public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                               return assetLoader.shouldInterceptRequest(request.getUrl());
                           }
                       });
+                      petWebView.addJavascriptInterface(new SharedOverlayBridge(), "OverlayBridge");
 
-                      overlayWebView.addJavascriptInterface(new OverlayJsBridge(), "OverlayBridge");
-                      windowManager.addView(overlayWebView, layoutParams);
-                      overlayWebView.loadUrl("https://appassets.androidplatform.net/assets/www/overlay-pet.html");
+                      // 原生 120Hz 丝滑触摸拖拽与点击识别（彻底解决 WebView 内部拖拽卡顿和透明区遮挡！）
+                      petWebView.setOnTouchListener(new View.OnTouchListener() {
+                          private float downRawX, downRawY;
+                          private int startWinX, startWinY;
+                          private boolean isDragging = false;
+
+                          @Override
+                          public boolean onTouch(View v, MotionEvent event) {
+                              switch (event.getActionMasked()) {
+                                  case MotionEvent.ACTION_DOWN:
+                                      downRawX = event.getRawX();
+                                      downRawY = event.getRawY();
+                                      startWinX = petParams.x;
+                                      startWinY = petParams.y;
+                                      isDragging = false;
+                                      return true;
+
+                                  case MotionEvent.ACTION_MOVE:
+                                      float dx = event.getRawX() - downRawX;
+                                      float dy = event.getRawY() - downRawY;
+                                      if (!isDragging && Math.hypot(dx, dy) > dp(6)) {
+                                          isDragging = true;
+                                      }
+                                      if (isDragging) {
+                                          petParams.x = Math.max(0, Math.min(screenWidth - petParams.width, startWinX + Math.round(dx)));
+                                          petParams.y = Math.max(dp(24), Math.min(screenHeight - petParams.height - dp(24), startWinY + Math.round(dy)));
+                                          windowManager.updateViewLayout(petWebView, petParams);
+                                          if (panelWebView != null && panelWebView.getVisibility() == View.VISIBLE) {
+                                              repositionPanelBesidePet();
+                                          }
+                                      }
+                                      return true;
+
+                                  case MotionEvent.ACTION_UP:
+                                  case MotionEvent.ACTION_CANCEL:
+                                      if (!isDragging) {
+                                          // 轻点桌宠：如果在待机半探头，立即跳出来站好并弹出气泡面板！
+                                          onPetClickedNatively();
+                                      } else {
+                                          // 拖动松手：自动吸附到最近的左/右/下边缘
+                                          snapPetToNearestEdge();
+                                      }
+                                      return true;
+                              }
+                              return false;
+                          }
+                      });
+
+                      // 2. 初始化独立气泡与双按钮小窗口 panelWebView（平时 GONE，0 遮挡）
+                      panelParams = new WindowManager.LayoutParams(
+                              dp(230),
+                              dp(120),
+                              WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                              WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                                      | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                              PixelFormat.TRANSLUCENT
+                      );
+                      panelParams.gravity = Gravity.TOP | Gravity.START;
+
+                      panelWebView = new WebView(this);
+                      panelWebView.setBackgroundColor(Color.TRANSPARENT);
+                      panelWebView.setVerticalScrollBarEnabled(false);
+                      panelWebView.setHorizontalScrollBarEnabled(false);
+                      panelWebView.setVisibility(View.GONE);
+                      WebSettings pls = panelWebView.getSettings();
+                      pls.setJavaScriptEnabled(true);
+                      pls.setDomStorageEnabled(true);
+                      panelWebView.setWebViewClient(new WebViewClient() {
+                          @Override
+                          public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                              return assetLoader.shouldInterceptRequest(request.getUrl());
+                          }
+                      });
+                      panelWebView.addJavascriptInterface(new SharedOverlayBridge(), "OverlayBridge");
+
+                      windowManager.addView(petWebView, petParams);
+                      windowManager.addView(panelWebView, panelParams);
+
+                      applyPetGeometry();
+                      petWebView.loadUrl("https://appassets.androidplatform.net/assets/www/pet-sprite.html");
+                      panelWebView.loadUrl("https://appassets.androidplatform.net/assets/www/pet-panel.html");
                   }
 
-                  private int dpToPx(int dp) {
-                      return Math.round(dp * density);
+                  private void onPetClickedNatively() {
+                      if (isPeekMode) {
+                          isPeekMode = false;
+                          applyPetGeometry();
+                          evalPetJs("window.setPetPose && window.setPetPose('active', '" + dockEdge + "');");
+                          showPanelWindow("greet", false);
+                          evalPanelJs("window.onPetWakeUp && window.onPetWakeUp();");
+                      } else {
+                          evalPetJs("window.triggerPetBounce && window.triggerPetBounce();");
+                          if (panelWebView.getVisibility() != View.VISIBLE) {
+                              showPanelWindow("greet", false);
+                          }
+                          evalPanelJs("window.onPetWakeUp && window.onPetWakeUp();");
+                      }
                   }
 
-                  public void evalJs(final String script) {
-                      if (overlayWebView == null) return;
-                      overlayWebView.post(() -> overlayWebView.evaluateJavascript(script, null));
-                  }
-
-                  public void notifyInstantEvent(String type, String defaultLine) {
-                      String safe = defaultLine.replace("'", "\\'");
-                      evalJs("window.onNativeInstantEvent && window.onNativeInstantEvent('" + type + "', '" + safe + "');");
-                  }
-
-                  public void notifySongChanged(String songInfo) {
-                      String safe = songInfo.replace("'", "\\'");
-                      evalJs("window.onNativeSongChanged && window.onNativeSongChanged('" + safe + "');");
-                  }
-
-                  public void dispatchSystemAudioBeat(double rms, boolean isBeat) {
-                      evalJs(String.format(Locale.US, "window.onSystemAudioBeat && window.onSystemAudioBeat(%.4f, %b);", rms, isBeat));
-                  }
-
-                  public void dispatchSystemAudioWav(String b64Wav) {
-                      evalJs("window.onSystemAudioWav && window.onSystemAudioWav('" + b64Wav + "');");
-                  }
-
-                  public void dispatchSystemAudioStatus(boolean active, String msg) {
-                      String safe = msg.replace("'", "\\'");
-                      evalJs("window.onSystemAudioStatus && window.onSystemAudioStatus(" + active + ", '" + safe + "');");
-                  }
-
-                  public void reloadConfigFromMain() {
-                      evalJs("window.reloadWhaleConfig && window.reloadWhaleConfig();");
-                  }
-
-                  private void updateWindowGeometry(String mode, int petSizeDp, boolean focusable) {
-                      if (windowManager == null || overlayWebView == null) return;
+                  private void snapPetToNearestEdge() {
                       DisplayMetrics dm = getResources().getDisplayMetrics();
                       screenWidth = dm.widthPixels;
                       screenHeight = dm.heightPixels;
 
-                      int oldCenterX = layoutParams.x + layoutParams.width / 2;
-                      int oldBottomY = layoutParams.y + layoutParams.height;
+                      int centerX = petParams.x + petParams.width / 2;
+                      int centerY = petParams.y + petParams.height / 2;
 
-                      currentMode = mode;
-                      petBaseDp = Math.max(85, Math.min(270, petSizeDp));
+                      int distLeft = centerX;
+                      int distRight = screenWidth - centerX;
+                      int distBottom = screenHeight - centerY;
 
-                      int targetW;
-                      int targetH;
-                      if ("peek".equals(mode)) {
-                          if ("left".equals(dockEdge) || "right".equals(dockEdge)) {
-                              targetW = dpToPx(Math.round(petBaseDp * 0.52f));
-                              targetH = dpToPx(Math.round(petBaseDp * 0.85f));
+                      if (distBottom < dp(95) && distBottom <= distLeft && distBottom <= distRight) {
+                          dockEdge = "bottom";
+                          anchorX = Math.max(dp(16), Math.min(screenWidth - dp(petSizeDp) - dp(16), petParams.x));
+                          anchorY = screenHeight - dp(petSizeDp);
+                      } else if (distLeft <= distRight) {
+                          dockEdge = "left";
+                          anchorX = 0;
+                          anchorY = Math.max(dp(48), Math.min(screenHeight - dp(petSizeDp) - dp(48), petParams.y));
+                      } else {
+                          dockEdge = "right";
+                          anchorX = screenWidth - dp(petSizeDp);
+                          anchorY = Math.max(dp(48), Math.min(screenHeight - dp(petSizeDp) - dp(48), petParams.y));
+                      }
+
+                      getSharedPreferences("whale_native_prefs", MODE_PRIVATE).edit()
+                              .putString("dockEdge", dockEdge)
+                              .putInt("anchorX", anchorX)
+                              .putInt("anchorY", anchorY)
+                              .apply();
+
+                      applyPetGeometry();
+                      evalPetJs("window.setPetPose && window.setPetPose('" + (isPeekMode ? "peek" : "active") + "', '" + dockEdge + "');");
+                      if (panelWebView != null && panelWebView.getVisibility() == View.VISIBLE) {
+                          repositionPanelBesidePet();
+                      }
+                  }
+
+                  // 根据「待机露半个头」或「跳出站好」精确裁剪 petParams 物理窗口尺寸（绝不多占 1 像素透明区域！）
+                  private void applyPetGeometry() {
+                      if (windowManager == null || petWebView == null) return;
+                      DisplayMetrics dm = getResources().getDisplayMetrics();
+                      screenWidth = dm.widthPixels;
+                      screenHeight = dm.heightPixels;
+
+                      int fullPx = dp(petSizeDp);
+                      int halfPx = Math.max(dp(22), Math.round(fullPx * 0.56f));
+
+                      if (isPeekMode) {
+                          if ("left".equals(dockEdge)) {
+                              petParams.width = halfPx;
+                              petParams.height = fullPx;
+                              petParams.x = 0;
+                              petParams.y = Math.max(dp(40), Math.min(screenHeight - fullPx - dp(40), anchorY));
+                          } else if ("right".equals(dockEdge)) {
+                              petParams.width = halfPx;
+                              petParams.height = fullPx;
+                              petParams.x = screenWidth - halfPx;
+                              petParams.y = Math.max(dp(40), Math.min(screenHeight - fullPx - dp(40), anchorY));
                           } else {
-                              targetW = dpToPx(Math.round(petBaseDp * 0.85f));
-                              targetH = dpToPx(Math.round(petBaseDp * 0.52f));
+                              petParams.width = fullPx;
+                              petParams.height = halfPx;
+                              petParams.x = Math.max(dp(10), Math.min(screenWidth - fullPx - dp(10), anchorX));
+                              petParams.y = screenHeight - halfPx;
                           }
-                      } else if ("chat".equals(mode)) {
-                          targetW = Math.min(screenWidth - dpToPx(16), dpToPx(Math.max(300, petBaseDp + 160)));
-                          targetH = dpToPx(petBaseDp + 210);
                       } else {
-                          targetW = Math.min(screenWidth - dpToPx(20), dpToPx(Math.max(260, petBaseDp + 120)));
-                          targetH = dpToPx(petBaseDp + 160);
+                          petParams.width = fullPx;
+                          petParams.height = fullPx;
+                          if ("left".equals(dockEdge)) {
+                              petParams.x = dp(4);
+                              petParams.y = Math.max(dp(40), Math.min(screenHeight - fullPx - dp(40), anchorY));
+                          } else if ("right".equals(dockEdge)) {
+                              petParams.x = screenWidth - fullPx - dp(4);
+                              petParams.y = Math.max(dp(40), Math.min(screenHeight - fullPx - dp(40), anchorY));
+                          } else {
+                              petParams.x = Math.max(dp(10), Math.min(screenWidth - fullPx - dp(10), anchorX));
+                              petParams.y = screenHeight - fullPx - dp(6);
+                          }
+                      }
+                      windowManager.updateViewLayout(petWebView, petParams);
+                  }
+
+                  private void showPanelWindow(String panelState, boolean focusKeyboard) {
+                      if (windowManager == null || panelWebView == null) return;
+                      int wDp = "chat".equals(panelState) ? 265 : 235;
+                      int hDp = "chat".equals(panelState) ? 165 : 130;
+
+                      panelParams.width = dp(wDp);
+                      panelParams.height = dp(hDp);
+
+                      if (focusKeyboard) {
+                          panelParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                      } else {
+                          panelParams.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
                       }
 
-                      layoutParams.width = targetW;
-                      layoutParams.height = targetH;
+                      panelWebView.setVisibility(View.VISIBLE);
+                      repositionPanelBesidePet();
 
-                      if (focusable) {
-                          layoutParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-                      } else {
-                          layoutParams.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-                      }
-
-                      if ("left".equals(dockEdge)) {
-                          layoutParams.x = 0;
-                          layoutParams.y = Math.max(dpToPx(40), Math.min(screenHeight - targetH - dpToPx(40), oldBottomY - targetH));
-                      } else if ("right".equals(dockEdge)) {
-                          layoutParams.x = screenWidth - targetW;
-                          layoutParams.y = Math.max(dpToPx(40), Math.min(screenHeight - targetH - dpToPx(40), oldBottomY - targetH));
-                      } else {
-                          layoutParams.x = Math.max(0, Math.min(screenWidth - targetW, oldCenterX - targetW / 2));
-                          layoutParams.y = screenHeight - targetH;
-                      }
-
-                      windowManager.updateViewLayout(overlayWebView, layoutParams);
-                      if (focusable) {
-                          overlayWebView.requestFocus();
+                      if (focusKeyboard) {
+                          panelWebView.requestFocus();
                           InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                           if (imm != null) {
-                              imm.showSoftInput(overlayWebView, InputMethodManager.SHOW_IMPLICIT);
+                              imm.showSoftInput(panelWebView, InputMethodManager.SHOW_IMPLICIT);
                           }
                       }
                   }
 
-                  public class OverlayJsBridge {
-                      @JavascriptInterface
-                      public void setOverlayMode(final String mode, final int petSizeDp, final boolean needKeyboard) {
-                          if (overlayWebView == null) return;
-                          overlayWebView.post(() -> updateWindowGeometry(mode, petSizeDp, needKeyboard));
+                  private void repositionPanelBesidePet() {
+                      if (windowManager == null || panelWebView == null || petParams == null) return;
+                      DisplayMetrics dm = getResources().getDisplayMetrics();
+                      screenWidth = dm.widthPixels;
+                      screenHeight = dm.heightPixels;
+
+                      int pw = panelParams.width;
+                      int ph = panelParams.height;
+
+                      if ("right".equals(dockEdge)) {
+                          // 桌宠在右边，气泡面板放在桌宠左侧
+                          panelParams.x = Math.max(dp(8), petParams.x - pw - dp(6));
+                          panelParams.y = Math.max(dp(36), Math.min(screenHeight - ph - dp(36), petParams.y + petParams.height / 2 - ph / 2));
+                      } else if ("left".equals(dockEdge)) {
+                          // 桌宠在左边，气泡面板放在桌宠右侧
+                          panelParams.x = Math.min(screenWidth - pw - dp(8), petParams.x + petParams.width + dp(6));
+                          panelParams.y = Math.max(dp(36), Math.min(screenHeight - ph - dp(36), petParams.y + petParams.height / 2 - ph / 2));
+                      } else {
+                          // 桌宠在底部，气泡面板放在桌宠正上方
+                          int petCenterX = petParams.x + petParams.width / 2;
+                          panelParams.x = Math.max(dp(8), Math.min(screenWidth - pw - dp(8), petCenterX - pw / 2));
+                          panelParams.y = Math.max(dp(36), petParams.y - ph - dp(6));
                       }
+                      windowManager.updateViewLayout(panelWebView, panelParams);
+                  }
 
-                      @JavascriptInterface
-                      public void moveOverlayBy(final int dxCss, final int dyCss) {
-                          if (overlayWebView == null || windowManager == null) return;
-                          overlayWebView.post(() -> {
-                              layoutParams.x += Math.round(dxCss * density);
-                              layoutParams.y += Math.round(dyCss * density);
-                              windowManager.updateViewLayout(overlayWebView, layoutParams);
-                          });
+                  private void hidePanelAndCollapseToPeek() {
+                      isPeekMode = true;
+                      if (panelWebView != null && windowManager != null) {
+                          panelParams.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                          panelWebView.setVisibility(View.GONE);
+                          windowManager.updateViewLayout(panelWebView, panelParams);
                       }
+                      applyPetGeometry();
+                      evalPetJs("window.setPetPose && window.setPetPose('peek', '" + dockEdge + "');");
+                  }
 
-                      @JavascriptInterface
-                      public String snapToNearestEdge() {
-                          if (overlayWebView == null || windowManager == null) return dockEdge;
-                          DisplayMetrics dm = getResources().getDisplayMetrics();
-                          screenWidth = dm.widthPixels;
-                          screenHeight = dm.heightPixels;
+                  public void evalPetJs(final String script) {
+                      if (petWebView == null) return;
+                      petWebView.post(() -> petWebView.evaluateJavascript(script, null));
+                  }
 
-                          int centerX = layoutParams.x + layoutParams.width / 2;
-                          int centerY = layoutParams.y + layoutParams.height / 2;
+                  public void evalPanelJs(final String script) {
+                      if (panelWebView == null) return;
+                      panelWebView.post(() -> panelWebView.evaluateJavascript(script, null));
+                  }
 
-                          int distLeft = centerX;
-                          int distRight = screenWidth - centerX;
-                          int distBottom = screenHeight - centerY;
-
-                          if (distBottom <= distLeft && distBottom <= distRight || centerY > screenHeight * 0.72f) {
-                              dockEdge = "bottom";
-                          } else if (distLeft < distRight) {
-                              dockEdge = "left";
-                          } else {
-                              dockEdge = "right";
+                  public void updatePetSizeFromSettings(final int newSizeDp) {
+                      if (petWebView == null) return;
+                      petWebView.post(() -> {
+                          petSizeDp = Math.max(32, Math.min(160, newSizeDp));
+                          getSharedPreferences("whale_native_prefs", MODE_PRIVATE).edit().putInt("petSizeDp", petSizeDp).apply();
+                          applyPetGeometry();
+                          if (panelWebView != null && panelWebView.getVisibility() == View.VISIBLE) {
+                              repositionPanelBesidePet();
                           }
+                          evalPetJs("window.reloadSpriteConfig && window.reloadSpriteConfig();");
+                          evalPanelJs("window.reloadPanelConfig && window.reloadPanelConfig();");
+                      });
+                  }
 
-                          overlayWebView.post(() -> {
-                              updateWindowGeometry(currentMode, petBaseDp, false);
-                              evalJs("window.onDockEdgeChanged && window.onDockEdgeChanged('" + dockEdge + "');");
+                  public void notifyInstantEvent(String type, String defaultLine) {
+                      String safe = defaultLine.replace("'", "\\'");
+                      if (petWebView != null) {
+                          petWebView.post(() -> {
+                              isPeekMode = false;
+                              applyPetGeometry();
+                              evalPetJs("window.setPetPose && window.setPetPose('active', '" + dockEdge + "');");
+                              showPanelWindow("greet", false);
+                              evalPanelJs("window.onNativeInstantEvent && window.onNativeInstantEvent('" + type + "', '" + safe + "');");
                           });
-                          return dockEdge;
+                      }
+                  }
+
+                  public void notifySongChanged(String songInfo) {
+                      String safe = songInfo.replace("'", "\\'");
+                      evalPetJs("window.setPetMood && window.setPetMood('dancing');");
+                      evalPanelJs("window.onNativeSongChanged && window.onNativeSongChanged('" + safe + "');");
+                  }
+
+                  public void dispatchSystemAudioBeat(double rms, boolean isBeat) {
+                      evalPetJs(String.format(Locale.US, "window.onSystemAudioBeat && window.onSystemAudioBeat(%.4f, %b);", rms, isBeat));
+                  }
+
+                  public void dispatchSystemAudioWav(String b64Wav) {
+                      evalPanelJs("window.onSystemAudioWav && window.onSystemAudioWav('" + b64Wav + "');");
+                  }
+
+                  public class SharedOverlayBridge {
+                      @JavascriptInterface
+                      public void expandPanel(final String state, final boolean needKeyboard) {
+                          if (panelWebView == null) return;
+                          panelWebView.post(() -> {
+                              isPeekMode = false;
+                              applyPetGeometry();
+                              evalPetJs("window.setPetPose && window.setPetPose('active', '" + dockEdge + "');");
+                              showPanelWindow(state, needKeyboard);
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public void resizePanelHeight(final int widthDp, final int heightDp, final boolean needKeyboard) {
+                          if (panelWebView == null) return;
+                          panelWebView.post(() -> {
+                              panelParams.width = dp(Math.max(190, Math.min(310, widthDp)));
+                              panelParams.height = dp(Math.max(95, Math.min(280, heightDp)));
+                              if (needKeyboard) {
+                                  panelParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                              } else {
+                                  panelParams.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                              }
+                              if (panelWebView.getVisibility() != View.VISIBLE) {
+                                  panelWebView.setVisibility(View.VISIBLE);
+                              }
+                              repositionPanelBesidePet();
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public void collapseToPeek() {
+                          if (panelWebView == null) return;
+                          panelWebView.post(FloatingOverlayService.this::hidePanelAndCollapseToPeek);
+                      }
+
+                      @JavascriptInterface
+                      public void setPetMoodAndMouth(final String mood, final float mouthOpen) {
+                          evalPetJs(String.format(Locale.US, "window.setPetMood && window.setPetMood('%s', %.2f);", mood, mouthOpen));
                       }
 
                       @JavascriptInterface
@@ -927,38 +1279,31 @@ jobs:
                       }
 
                       @JavascriptInterface
-                      public void openControlPanelApp() {
-                          Intent i = new Intent(FloatingOverlayService.this, MainActivity.class);
-                          i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                          startActivity(i);
-                      }
-
-                      @JavascriptInterface
                       public void startVoiceRecognition() {
-                          if (overlayWebView == null) return;
-                          overlayWebView.post(() -> {
+                          if (panelWebView == null) return;
+                          panelWebView.post(() -> {
                               if (speechRecognizer != null) {
                                   speechRecognizer.destroy();
                               }
                               speechRecognizer = SpeechRecognizer.createSpeechRecognizer(FloatingOverlayService.this);
                               speechRecognizer.setRecognitionListener(new RecognitionListener() {
                                   @Override public void onReadyForSpeech(Bundle params) {
-                                      evalJs("window.onVoiceState && window.onVoiceState('listening');");
+                                      evalPanelJs("window.onVoiceState && window.onVoiceState('listening');");
                                   }
                                   @Override public void onBeginningOfSpeech() {}
                                   @Override public void onRmsChanged(float rmsdB) {}
                                   @Override public void onBufferReceived(byte[] buffer) {}
                                   @Override public void onEndOfSpeech() {
-                                      evalJs("window.onVoiceState && window.onVoiceState('processing');");
+                                      evalPanelJs("window.onVoiceState && window.onVoiceState('processing');");
                                   }
                                   @Override public void onError(int error) {
-                                      evalJs("window.onVoiceError && window.onVoiceError(" + error + ");");
+                                      evalPanelJs("window.onVoiceError && window.onVoiceError(" + error + ");");
                                   }
                                   @Override public void onResults(Bundle results) {
                                       ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                                       if (matches != null && !matches.isEmpty()) {
                                           String text = matches.get(0).replace("'", "\\'");
-                                          evalJs("window.onVoiceResult && window.onVoiceResult('" + text + "');");
+                                          evalPanelJs("window.onVoiceResult && window.onVoiceResult('" + text + "');");
                                       }
                                   }
                                   @Override public void onPartialResults(Bundle partialResults) {}
@@ -978,13 +1323,11 @@ jobs:
                       try {
                           unregisterReceiver(systemEventReceiver);
                       } catch (Exception ignored) {}
-                      if (windowManager != null && overlayWebView != null) {
-                          windowManager.removeView(overlayWebView);
-                          overlayWebView = null;
+                      if (windowManager != null) {
+                          if (petWebView != null) windowManager.removeView(petWebView);
+                          if (panelWebView != null) windowManager.removeView(panelWebView);
                       }
-                      if (speechRecognizer != null) {
-                          speechRecognizer.destroy();
-                      }
+                      if (speechRecognizer != null) speechRecognizer.destroy();
                       super.onDestroy();
                   }
 
@@ -996,7 +1339,7 @@ jobs:
                   private void createNotificationChannel() {
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                           NotificationChannel channel = new NotificationChannel(
-                                  CHANNEL_ID, "大肥鱼全局桌面悬浮窗", NotificationManager.IMPORTANCE_MIN);
+                                  CHANNEL_ID, "大肥鱼全局桌面悬浮球", NotificationManager.IMPORTANCE_MIN);
                           NotificationManager nm = getSystemService(NotificationManager.class);
                           if (nm != null) nm.createNotificationChannel(channel);
                       }
@@ -1169,129 +1512,251 @@ jobs:
                       }
 
                       @JavascriptInterface
-                      public void notifyConfigSaved() {
+                      public void notifyConfigSaved(int newSizeDp) {
                           if (FloatingOverlayService.instance != null) {
-                              FloatingOverlayService.instance.reloadConfigFromMain();
+                              FloatingOverlayService.instance.updatePetSizeFromSettings(newSizeDp);
                           }
                       }
 
                       @JavascriptInterface
                       public void triggerTestContextGreeting() {
                           if (FloatingOverlayService.instance != null) {
-                              FloatingOverlayService.instance.evalJs("window.triggerHalfHourContextChat && window.triggerHalfHourContextChat(true);");
+                              FloatingOverlayService.instance.evalPanelJs("window.triggerHalfHourContextChat && window.triggerHalfHourContextChat(true);");
                           }
                       }
                   }
               }
               """).lstrip())
 
-          # 8. 生成全局悬浮窗页面 overlay-pet.html（同时支持 Google AI Studio Gemini 官方 API 与第三方 OpenAI 格式 API）
-          with open(os.path.join(www_dir, 'overlay-pet.html'), 'w', encoding='utf-8') as f:
+          # 8. 生成纯桌宠本体渲染页 pet-sprite.html（100vw x 100vh 实时跟随窗口大小等比缩放贴图 + 贴边露半头 + 呼吸与张嘴）
+          with open(os.path.join(www_dir, 'pet-sprite.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
               <html lang="zh-CN">
               <head>
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                <title>Whale Overlay</title>
                 <style>
-                  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+                  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
                   html, body {
-                    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+                    width: 100vw; height: 100vh; overflow: hidden;
                     background: transparent !important;
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                   }
-                  #overlay-root {
-                    position: relative; width: 100vw; height: 100vh;
-                    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-                  }
-                  #pet-bubble {
-                    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-                    max-width: 92vw; min-width: 170px;
-                    background: rgba(255, 255, 255, 0.96); color: #0f172a;
-                    padding: 10px 14px; border-radius: 16px;
-                    font-size: 13px; line-height: 1.45; font-weight: 500;
-                    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.28);
-                    border: 1.5px solid rgba(56, 189, 248, 0.55);
-                    z-index: 50; display: none; word-break: break-word;
-                  }
-                  #pet-bubble::after {
-                    content: ''; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
-                    border-width: 7px 7px 0; border-style: solid; border-color: rgba(255,255,255,0.96) transparent;
-                  }
-                  #whale-actor {
-                    position: relative; z-index: 20; cursor: pointer; touch-action: none;
-                    transition: transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+                  #sprite-wrap {
+                    width: 100vw; height: 100vh;
                     display: flex; align-items: center; justify-content: center;
+                    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
                   }
-                  body.mode-peek.edge-bottom #whale-actor {
-                    transform: translateY(46%);
+                  /* 待机半探头姿态（像 QQ 企鹅一样从边缘探出半个小脑袋） */
+                  body.pose-peek.edge-right #sprite-wrap {
+                    transform: translateX(32%) rotate(-24deg);
                   }
-                  body.mode-peek.edge-left #whale-actor {
-                    transform: translateX(-44%) rotate(32deg);
+                  body.pose-peek.edge-left #sprite-wrap {
+                    transform: translateX(-32%) rotate(24deg);
                   }
-                  body.mode-peek.edge-right #whale-actor {
-                    transform: translateX(44%) rotate(-32deg);
+                  body.pose-peek.edge-bottom #sprite-wrap {
+                    transform: translateY(34%);
                   }
-                  body.mode-active #whale-actor,
-                  body.mode-chat #whale-actor {
-                    transform: translate(0, -34px) scale(1);
+                  body.pose-active #sprite-wrap {
+                    transform: translate(0, 0) rotate(0deg);
                   }
-                  #action-buttons {
-                    position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
-                    display: none; gap: 8px; z-index: 60; white-space: nowrap;
-                  }
-                  body.mode-active #action-buttons {
-                    display: flex;
-                  }
-                  .act-btn {
-                    background: rgba(15, 23, 42, 0.9); color: #f8fafc;
-                    border: 1.2px solid rgba(56, 189, 248, 0.6);
-                    border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 600;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: inline-flex; align-items: center; gap: 4px;
-                  }
-                  .act-btn.close-btn {
-                    padding: 6px 9px; border-color: rgba(148, 163, 184, 0.4); color: #cbd5e1;
-                  }
-                  #chat-bar {
-                    position: absolute; bottom: 4px; left: 4px; right: 4px;
-                    display: none; gap: 6px; z-index: 70;
-                    background: rgba(15, 23, 42, 0.94); padding: 6px 8px;
-                    border-radius: 999px; border: 1.5px solid rgba(56, 189, 248, 0.65);
-                    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-                  }
-                  body.mode-chat #chat-bar {
-                    display: flex; align-items: center;
-                  }
-                  #chat-input {
-                    flex: 1; background: transparent; border: none; color: #ffffff;
-                    font-size: 13px; outline: none; padding: 4px 6px;
-                    user-select: text; -webkit-user-select: text;
-                  }
-                  .send-btn {
-                    background: #0284c7; color: #fff; border: none; border-radius: 999px;
-                    padding: 5px 12px; font-size: 12px; font-weight: 600;
+                  /* 关键修复：Canvas 设为 100% 宽高，彻底解决调节大小时贴图不缩放的问题！ */
+                  canvas {
+                    width: 100%; height: 100%; display: block; object-fit: contain;
                   }
                 </style>
               </head>
-              <body class="mode-peek edge-bottom">
-                <div id="overlay-root">
-                  <div id="pet-bubble" onclick="collapseToPeek()"></div>
+              <body class="pose-peek edge-right">
+                <div id="sprite-wrap">
+                  <canvas id="pet-canvas" width="256" height="256"></canvas>
+                </div>
+                <script>
+                  const COLOR_SCHEMES = {
+                    'deepseek_blue': 'none',
+                    'claude_amber': 'hue-rotate(155deg) saturate(1.15)',
+                    'sakura_pink': 'hue-rotate(110deg) saturate(1.25)',
+                    'mint_emerald': 'hue-rotate(310deg) saturate(1.1)',
+                    'violet_dream': 'hue-rotate(55deg) saturate(1.2)',
+                    'sunset_coral': 'hue-rotate(135deg) saturate(1.3)',
+                    'cyber_cyan': 'hue-rotate(340deg) saturate(1.35)',
+                    'moonlight_silver': 'grayscale(0.65) brightness(1.12)'
+                  };
 
-                  <div id="whale-actor">
-                    <canvas id="whale-canvas" width="220" height="220"></canvas>
+                  let officialImg = new Image();
+                  let hasImg = false;
+                  officialImg.onload = () => { hasImg = true; };
+                  officialImg.src = 'whale-official-icon.png';
+
+                  fetch('whale-assets-manifest.json')
+                    .then(r => r.json())
+                    .then(m => {
+                      if (!hasImg && m.whaleImages && m.whaleImages.length > 0) {
+                        officialImg.src = m.whaleImages[0];
+                      }
+                    }).catch(() => {});
+
+                  let state = {
+                    tick: 0,
+                    bounce: 0,
+                    mouth: 0,
+                    mood: 'calm'
+                  };
+
+                  window.reloadSpriteConfig = function() {
+                    try {
+                      const cfg = JSON.parse(localStorage.getItem('whale_v6_cfg') || '{}');
+                      document.getElementById('sprite-wrap').style.filter = COLOR_SCHEMES[cfg.colorScheme] || 'none';
+                    } catch (_) {}
+                  };
+
+                  window.setPetPose = function(pose, edge) {
+                    document.body.className = 'pose-' + (pose || 'peek') + ' edge-' + (edge || 'right');
+                    state.bounce = 0.85;
+                  };
+
+                  window.triggerPetBounce = function() {
+                    state.bounce = 0.85;
+                    state.mood = 'happy';
+                  };
+
+                  window.setPetMood = function(mood, mouthVal) {
+                    if (mood) state.mood = mood;
+                    if (typeof mouthVal === 'number') state.mouth = mouthVal;
+                  };
+
+                  window.onSystemAudioBeat = function(rms, isBeat) {
+                    if (rms > 0.04) {
+                      state.mood = 'dancing';
+                      if (isBeat) state.bounce = Math.min(0.85, rms * 1.1);
+                    } else if (state.mood === 'dancing') {
+                      state.mood = 'calm';
+                    }
+                  };
+
+                  const canvas = document.getElementById('pet-canvas');
+                  const ctx = canvas.getContext('2d');
+
+                  function draw() {
+                    state.tick += 0.07;
+                    ctx.clearRect(0, 0, 256, 256);
+                    ctx.save();
+
+                    const dy = Math.sin(state.tick) * 4 - state.bounce * 20;
+                    const rot = state.mood === 'dancing'
+                      ? Math.sin(state.tick * 3.5) * 0.14
+                      : Math.sin(state.tick * 0.8) * 0.04;
+
+                    ctx.translate(128, 132 + dy);
+                    ctx.rotate(rot);
+
+                    const sx = 1 + state.bounce * 0.12;
+                    const sy = 1 - state.bounce * 0.10;
+                    ctx.scale(sx, sy);
+
+                    if (hasImg && officialImg.complete && officialImg.naturalWidth > 0) {
+                      // 满画布绘制原版大肥鱼贴图（随窗口大小 100% 缩放）
+                      ctx.drawImage(officialImg, -118, -118, 236, 236);
+                      if (state.mouth > 0.08) {
+                        ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 22, 8, 3 + state.mouth * 9, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                      }
+                    } else {
+                      ctx.fillStyle = '#3b82f6';
+                      ctx.beginPath(); ctx.ellipse(0, 0, 96, 82, 0, 0, Math.PI * 2); ctx.fill();
+                      ctx.fillStyle = '#f8fafc';
+                      ctx.beginPath(); ctx.ellipse(-4, 22, 78, 52, 0, 0, Math.PI); ctx.fill();
+                    }
+                    ctx.restore();
+
+                    if (state.mood === 'thinking') {
+                      ctx.font = '34px sans-serif'; ctx.fillText('💭', 180, 50 + Math.sin(state.tick * 4) * 5);
+                    } else if (state.mood === 'dancing') {
+                      ctx.font = '34px sans-serif'; ctx.fillText('🎵', 180, 50 + Math.cos(state.tick * 4) * 5);
+                    }
+
+                    state.bounce *= 0.82;
+                    state.mouth *= 0.84;
+                    requestAnimationFrame(draw);
+                  }
+
+                  reloadSpriteConfig();
+                  requestAnimationFrame(draw);
+                </script>
+              </body>
+              </html>
+              """).lstrip())
+
+          # 9. 生成独立气泡与双按钮浮窗页 pet-panel.html（修复等待回复时自动收起问题 + 支持酒馆预设组装与 Thinking Budget 0 极速秒回）
+          with open(os.path.join(www_dir, 'pet-panel.html'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""
+              <!DOCTYPE html>
+              <html lang="zh-CN">
+              <head>
+                <meta charset="UTF-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                <style>
+                  * { box-sizing: border-box; margin: 0; padding: 0; }
+                  html, body {
+                    width: 100vw; height: 100vh; overflow: hidden;
+                    background: transparent !important;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                  }
+                  .panel-wrap {
+                    width: 100vw; height: 100vh; padding: 4px;
+                    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+                  }
+                  #bubble-box {
+                    background: rgba(15, 23, 42, 0.94); color: #f8fafc;
+                    border: 1.5px solid rgba(56, 189, 248, 0.65);
+                    border-radius: 14px; padding: 8px 11px;
+                    font-size: 12.5px; line-height: 1.42;
+                    max-height: calc(100vh - 44px); overflow-y: auto;
+                    box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+                    word-break: break-word;
+                  }
+                  .btn-row {
+                    display: flex; gap: 6px; align-items: center; justify-content: flex-end;
+                  }
+                  .pill-btn {
+                    background: rgba(15, 23, 42, 0.92); color: #f8fafc;
+                    border: 1.2px solid rgba(56, 189, 248, 0.65);
+                    border-radius: 999px; padding: 5px 11px; font-size: 11.5px; font-weight: 600;
+                    cursor: pointer; white-space: nowrap;
+                  }
+                  .pill-btn.close {
+                    border-color: rgba(148, 163, 184, 0.45); color: #94a3b8; padding: 5px 9px;
+                  }
+                  #input-row {
+                    display: none; gap: 5px; align-items: center;
+                    background: rgba(15, 23, 42, 0.96);
+                    border: 1.5px solid #38bdf8; border-radius: 999px; padding: 4px 7px;
+                  }
+                  #chat-inp {
+                    flex: 1; background: transparent; border: none; color: #fff;
+                    font-size: 12.5px; outline: none; padding: 3px 4px;
+                  }
+                  .send-btn {
+                    background: #0284c7; color: #fff; border: none; border-radius: 999px;
+                    padding: 4px 10px; font-size: 11.5px; font-weight: 600;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="panel-wrap">
+                  <div id="bubble-box">噗通！你的桌面小鲸鱼已就位～</div>
+
+                  <div class="btn-row" id="action-row">
+                    <button class="pill-btn" onclick="startVoice()">🎤 语音</button>
+                    <button class="pill-btn" onclick="openInputBar()">💬 对话</button>
+                    <button class="pill-btn close" onclick="closePanelNow()" title="收起">✕</button>
                   </div>
 
-                  <div id="action-buttons">
-                    <button class="act-btn" onclick="startVoiceChat()">🎤 语音</button>
-                    <button class="act-btn" onclick="openChatInput()">💬 对话</button>
-                    <button class="act-btn close-btn" onclick="collapseToPeek()" title="缩回半个头">▾</button>
-                  </div>
-
-                  <div id="chat-bar">
-                    <button class="act-btn close-btn" onclick="switchToActiveMode()">‹</button>
-                    <input id="chat-input" placeholder="输入想对大肥鱼说的话..." onkeydown="if(event.key==='Enter')submitChatText()" />
-                    <button class="send-btn" onclick="submitChatText()">发送</button>
+                  <div id="input-row">
+                    <button class="pill-btn close" onclick="closeInputBar()">‹</button>
+                    <input id="chat-inp" placeholder="说点什么..." onkeydown="if(event.key==='Enter')sendText()" />
+                    <button class="send-btn" onclick="sendText()">发送</button>
                   </div>
                 </div>
 
@@ -1309,19 +1774,60 @@ jobs:
                     "扑腾！水面巡逻完毕，报告主人，今天也是超级想你的一天！"
                   ];
 
-                  const COLOR_SCHEMES = {
-                    'deepseek_blue': 'none',
-                    'claude_amber': 'hue-rotate(155deg) saturate(1.15)',
-                    'sakura_pink': 'hue-rotate(110deg) saturate(1.25)',
-                    'mint_emerald': 'hue-rotate(310deg) saturate(1.1)',
-                    'violet_dream': 'hue-rotate(55deg) saturate(1.2)',
-                    'sunset_coral': 'hue-rotate(135deg) saturate(1.3)',
-                    'cyber_cyan': 'hue-rotate(340deg) saturate(1.35)',
-                    'moonlight_silver': 'grayscale(0.65) brightness(1.12)'
+                  // 默认酒馆（SillyTavern）风格模块化预设
+                  const DEFAULT_TAVERN_PRESET = {
+                    presetName: '⚡ 极速秒回桌宠预设（默认）',
+                    thinkingBudget: 0, // 0 = 关闭思考链，0.5秒极速出字！
+                    temperature: 0.85,
+                    topP: 0.95,
+                    maxTokens: 140,
+                    contextDepth: 6,
+                    entries: [
+                      {
+                        id: 'main_sys',
+                        name: '主系统指令 (Main Prompt)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'top',
+                        content: '你将扮演住在用户手机屏幕边缘的桌面宠物「{{char}}」与「{{user}}」互动。直接输出{{char}}说的台词，不要输出任何动作括号描写、心理活动或思考过程。'
+                      },
+                      {
+                        id: 'char_card',
+                        name: '角色设定卡 (Character Card)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'top',
+                        content: '{{char}}是一只蓝白配色的小鲸鱼娘（大肥鱼），性格灵动粘人、温柔俏皮，偶尔爱吐槽。称呼{{user}}为“主人”。'
+                      },
+                      {
+                        id: 'user_persona',
+                        name: '用户人设 (User Persona)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'top',
+                        content: '{{user}}是{{char}}最信赖的伙伴，日常带着手机听歌、看视频、聊天。'
+                      },
+                      {
+                        id: 'world_info_phone',
+                        name: '世界书：手机实时状态注入 (KLWP World Info)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'top',
+                        content: '【当前手机实时状态】时间:{{time}} | 电量:{{battery}} | 天气:{{weather}} | 闹钟:{{alarm}} | 通知:{{notifications}} | 正在播放音乐:{{song}}。仅在话题相关或主动关怀时自然提及。'
+                      },
+                      {
+                        id: 'post_history_jb',
+                        name: '尾置强约束 (Post-History Instructions)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'bottom',
+                        content: '[输出铁律：严禁输出思维链，直接用口语回复1~2句话，总字数严格控制在55字以内！]'
+                      }
+                    ]
                   };
 
                   const DEFAULT_CFG = {
-                    apiProvider: 'gemini', // 'gemini' (Google AI Studio) | 'openai' (第三方 OpenAI 格式)
+                    apiProvider: 'gemini',
                     geminiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
                     geminiApiKey: '',
                     geminiModel: 'gemini-2.5-flash',
@@ -1329,515 +1835,276 @@ jobs:
                     apiKey: '',
                     model: 'deepseek-chat',
                     asrModel: 'FunAudioLLM/SenseVoiceSmall',
-                    petSizeDp: 145,
+                    petSizeDp: 58,
                     fontScale: 100,
                     colorScheme: 'deepseek_blue',
                     cityFallback: 'Shanghai',
                     autoVideoComment: false,
-                    sysPrompt: '你是住在用户手机屏幕上的「大肥鱼」（DeepSeek 蓝白小鲸鱼桌宠），性格灵动粘人、俏皮体贴。每次说话简短自然（不超过65字）。收到手机电量、闹钟、未读消息、天气或歌名信息时，像贴心小伴侣一样自然叮嘱或吐槽。'
+                    userName: '主人',
+                    charName: '大肥鱼',
+                    tavernPreset: DEFAULT_TAVERN_PRESET
                   };
 
                   let config = {};
-                  let currentMode = 'peek';
-                  let dockEdge = 'bottom';
-                  let isScreenOn = true;
-                  let idleCollapseTimer = null;
-                  let bubbleHideTimer = null;
                   let chatHistory = [];
-                  let cachedWeather = null;
-                  let lastWeatherFetchMs = 0;
+                  let lastReplyText = '';
+                  let isScreenOn = true;
+                  // 关键修复 #2：等待回复或流式输出期间，isBusy = true，彻底锁死自动收起定时器！
+                  let isBusy = false;
+                  let autoCollapseTimer = null;
+                  let thinkingTicker = null;
+                  let cachedWeather = '晴朗适宜';
 
-                  let anim = {
-                    tick: 0,
-                    jumpBounce: 0,
-                    mouthOpen: 0,
-                    beatBounce: 0,
-                    mood: 'calm',
-                    rubDist: 0
-                  };
-
-                  function hasActiveApiKey() {
-                    return config.apiProvider === 'gemini'
-                      ? Boolean(config.geminiApiKey && config.geminiApiKey.trim())
-                      : Boolean(config.apiKey && config.apiKey.trim());
-                  }
-
-                  function reloadWhaleConfig() {
+                  function reloadPanelConfig() {
                     try {
-                      config = Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem('whale_v5_cfg') || '{}'));
+                      const raw = JSON.parse(localStorage.getItem('whale_v6_cfg') || '{}');
+                      config = Object.assign({}, DEFAULT_CFG, raw);
+                      if (!config.tavernPreset || !Array.isArray(config.tavernPreset.entries)) {
+                        config.tavernPreset = DEFAULT_TAVERN_PRESET;
+                      }
                     } catch (_) {
                       config = Object.assign({}, DEFAULT_CFG);
                     }
-                    const actor = document.getElementById('whale-actor');
-                    actor.style.width = config.petSizeDp + 'px';
-                    actor.style.height = config.petSizeDp + 'px';
-                    actor.style.filter = COLOR_SCHEMES[config.colorScheme] || 'none';
-                    const bubble = document.getElementById('pet-bubble');
-                    bubble.style.fontSize = Math.round(13 * (config.fontScale || 100) / 100) + 'px';
-                    if (window.OverlayBridge) {
-                      window.OverlayBridge.setOverlayMode(currentMode, parseInt(config.petSizeDp, 10) || 145, currentMode === 'chat');
-                    }
+                    const b = document.getElementById('bubble-box');
+                    b.style.fontSize = Math.round(12.5 * (config.fontScale || 100) / 100) + 'px';
+                    refreshWeatherInBackground();
                   }
 
-                  let officialWhaleImg = new Image();
-                  let loadedRealTexture = false;
-                  officialWhaleImg.onload = () => { loadedRealTexture = true; };
-                  officialWhaleImg.src = 'whale-official-icon.png';
-
-                  fetch('whale-assets-manifest.json')
-                    .then(r => r.json())
-                    .then(manifest => {
-                      const list = manifest.whaleImages || [];
-                      if (list.length > 0 && !loadedRealTexture) {
-                        officialWhaleImg.src = list[0];
+                  // 天气改为纯后台异步刷新，绝不阻塞和拖慢普通聊天响应速度！
+                  async function refreshWeatherInBackground() {
+                    try {
+                      let dev = {};
+                      if (window.OverlayBridge) {
+                        dev = JSON.parse(window.OverlayBridge.getDeviceContextJson() || '{}');
                       }
-                    }).catch(() => {});
-
-                  const canvas = document.getElementById('whale-canvas');
-                  const ctx = canvas.getContext('2d');
-
-                  function renderLoop() {
-                    anim.tick += 0.065;
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.save();
-
-                    const bounceOffset = -anim.jumpBounce * 28 - anim.beatBounce * 14 + Math.sin(anim.tick) * 3.5;
-                    const sway = anim.mood === 'dancing'
-                      ? Math.sin(anim.tick * 3.4) * 0.15
-                      : Math.sin(anim.tick * 0.75) * 0.04;
-
-                    ctx.translate(110, 122 + bounceOffset);
-                    ctx.rotate(sway);
-
-                    const squashX = 1 + (anim.jumpBounce + anim.beatBounce) * 0.1;
-                    const squashY = 1 - (anim.jumpBounce + anim.beatBounce) * 0.08;
-                    ctx.scale(squashX, squashY);
-
-                    if (loadedRealTexture && officialWhaleImg.complete && officialWhaleImg.naturalWidth > 0) {
-                      ctx.drawImage(officialWhaleImg, -86, -86, 172, 172);
-                      if (anim.mouthOpen > 0.08) {
-                        ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
-                        ctx.beginPath();
-                        ctx.ellipse(0, 18, 6, 2 + anim.mouthOpen * 6, 0, 0, Math.PI * 2);
-                        ctx.fill();
-                      }
-                    } else {
-                      ctx.save();
-                      ctx.translate(50, 16);
-                      ctx.rotate(Math.sin(anim.tick * 2.6) * 0.26);
-                      ctx.fillStyle = '#3b82f6';
-                      ctx.beginPath(); ctx.ellipse(18, 0, 22, 12, -0.3, 0, Math.PI * 2); ctx.fill();
-                      ctx.restore();
-
-                      ctx.fillStyle = '#3b82f6';
-                      ctx.beginPath(); ctx.ellipse(0, 0, 64, 52, 0, 0, Math.PI * 2); ctx.fill();
-                      ctx.fillStyle = '#f8fafc';
-                      ctx.beginPath(); ctx.ellipse(-4, 16, 52, 34, 0, 0, Math.PI); ctx.fill();
-
-                      const isBlink = Math.sin(anim.tick * 0.45) > 0.97;
-                      ctx.strokeStyle = '#0f172a'; ctx.fillStyle = '#0f172a'; ctx.lineWidth = 3;
-                      [-24, 14].forEach(ex => {
-                        if (isBlink || anim.mood === 'happy' || anim.mood === 'love') {
-                          ctx.beginPath(); ctx.arc(ex, -6, 7, Math.PI, 0, false); ctx.stroke();
-                        } else {
-                          ctx.beginPath(); ctx.arc(ex, -6, 6.5, 0, Math.PI * 2); ctx.fill();
-                          ctx.fillStyle = '#fff';
-                          ctx.beginPath(); ctx.arc(ex - 2, -8, 2.2, 0, Math.PI * 2); ctx.fill();
-                          ctx.fillStyle = '#0f172a';
+                      let lat = dev.lat, lon = dev.lon;
+                      let city = config.cityFallback || 'Shanghai';
+                      if (!lat || !lon) {
+                        const gr = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=zh`);
+                        const gd = await gr.json();
+                        if (gd.results && gd.results[0]) {
+                          lat = gd.results[0].latitude;
+                          lon = gd.results[0].longitude;
+                          city = gd.results[0].name;
                         }
-                      });
-
-                      ctx.fillStyle = 'rgba(244, 114, 182, 0.5)';
-                      ctx.beginPath(); ctx.ellipse(-34, 4, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-                      ctx.beginPath(); ctx.ellipse(24, 4, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-
-                      ctx.fillStyle = '#f43f5e';
-                      if (anim.mouthOpen > 0.06) {
-                        ctx.beginPath(); ctx.ellipse(-5, 8, 7, 2.5 + anim.mouthOpen * 8, 0, 0, Math.PI * 2); ctx.fill();
-                      } else {
-                        ctx.beginPath(); ctx.arc(-5, 6, 5, 0, Math.PI, false); ctx.stroke();
                       }
-                    }
-                    ctx.restore();
+                      if (lat && lon) {
+                        const wr = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`);
+                        const wd = await wr.json();
+                        if (wd && wd.current) {
+                          const c = wd.current.weather_code;
+                          const desc = c === 0 ? '晴' : (c <= 3 ? '多云' : (c <= 67 ? '雨' : '雪'));
+                          cachedWeather = `${city} ${desc} ${wd.current.temperature_2m}°C`;
+                        }
+                      }
+                    } catch (_) {}
+                  }
+                  setInterval(refreshWeatherInBackground, 20 * 60 * 1000);
 
-                    if (anim.mood === 'love') {
-                      ctx.font = '22px sans-serif'; ctx.fillText('❤️', 100, 28 + Math.sin(anim.tick * 3) * 4);
-                    } else if (anim.mood === 'thinking') {
-                      ctx.font = '19px sans-serif'; ctx.fillText('💭', 145, 34 + Math.sin(anim.tick * 4) * 4);
-                    } else if (anim.mood === 'dancing') {
-                      ctx.font = '19px sans-serif'; ctx.fillText('🎵', 148, 34 + Math.cos(anim.tick * 4) * 5);
-                    }
-
-                    anim.jumpBounce *= 0.84;
-                    anim.beatBounce *= 0.82;
-                    anim.mouthOpen *= 0.85;
-                    if (isScreenOn) {
-                      requestAnimationFrame(renderLoop);
-                    } else {
-                      setTimeout(renderLoop, 1000);
-                    }
+                  function setBubbleText(text) {
+                    const b = document.getElementById('bubble-box');
+                    b.textContent = text;
+                    b.scrollTop = b.scrollHeight;
                   }
 
-                  const actor = document.getElementById('whale-actor');
-                  let pointerDown = false;
-                  let startX = 0, startY = 0;
-                  let movedTotal = 0;
-
-                  actor.addEventListener('pointerdown', e => {
-                    pointerDown = true;
-                    startX = e.screenX;
-                    startY = e.screenY;
-                    movedTotal = 0;
-                    anim.rubDist = 0;
-                    actor.setPointerCapture(e.pointerId);
-                    resetIdleCollapseTimer();
-                  });
-
-                  actor.addEventListener('pointermove', e => {
-                    if (!pointerDown) return;
-                    const dx = e.screenX - startX;
-                    const dy = e.screenY - startY;
-                    const step = Math.hypot(dx, dy);
-                    movedTotal += step;
-                    startX = e.screenX;
-                    startY = e.screenY;
-
-                    if (currentMode !== 'peek' && Math.abs(dy) < 12 && Math.abs(dx) < 28) {
-                      anim.rubDist += step;
-                      if (anim.rubDist > 320) {
-                        anim.rubDist = 0;
-                        anim.mood = 'love';
-                        anim.jumpBounce = 0.65;
-                        showBubble('呼噜噜～摸头好舒服呀 ❤️', 5000);
+                  function scheduleAutoCollapse(delayMs = 25000) {
+                    clearTimeout(autoCollapseTimer);
+                    // 如果正在语音输入、等待 AI 思考或流式输出中，绝对不启动收起倒计时！
+                    if (isBusy) return;
+                    autoCollapseTimer = setTimeout(() => {
+                      if (!isBusy && window.OverlayBridge) {
+                        window.OverlayBridge.collapseToPeek();
                       }
-                    } else if (step > 2 && window.OverlayBridge) {
-                      window.OverlayBridge.moveOverlayBy(Math.round(dx / window.devicePixelRatio), Math.round(dy / window.devicePixelRatio));
-                    }
-                  });
+                    }, delayMs);
+                  }
 
-                  actor.addEventListener('pointerup', e => {
-                    if (!pointerDown) return;
-                    pointerDown = false;
-                    if (movedTotal < 14) {
-                      if (currentMode === 'peek') {
-                        wakeUpAndGreet();
-                      } else {
-                        anim.jumpBounce = 0.7;
-                        anim.mood = 'happy';
-                        const randomLine = WAKE_GREETINGS[Math.floor(Math.random() * WAKE_GREETINGS.length)];
-                        showBubble(randomLine, 9000);
-                        resetIdleCollapseTimer();
-                      }
-                    } else if (window.OverlayBridge) {
-                      window.OverlayBridge.snapToNearestEdge();
-                    }
-                  });
-
-                  window.onDockEdgeChanged = function(edge) {
-                    dockEdge = edge || 'bottom';
-                    document.body.classList.remove('edge-bottom', 'edge-left', 'edge-right');
-                    document.body.classList.add('edge-' + dockEdge);
+                  window.onPetWakeUp = function() {
+                    if (isBusy) return; // 正在等待回复时不覆盖思考状态
+                    const line = WAKE_GREETINGS[Math.floor(Math.random() * WAKE_GREETINGS.length)];
+                    setBubbleText(line);
+                    closeInputBar(false);
+                    scheduleAutoCollapse(22000);
                   };
 
-                  function wakeUpAndGreet(customGreeting) {
-                    currentMode = 'active';
-                    document.body.classList.remove('mode-peek', 'mode-chat');
-                    document.body.classList.add('mode-active');
+                  function openInputBar() {
+                    clearTimeout(autoCollapseTimer);
+                    document.getElementById('action-row').style.display = 'none';
+                    document.getElementById('input-row').style.display = 'flex';
+                    if (lastReplyText) {
+                      setBubbleText(lastReplyText);
+                    }
                     if (window.OverlayBridge) {
-                      window.OverlayBridge.setOverlayMode('active', parseInt(config.petSizeDp, 10) || 145, false);
+                      window.OverlayBridge.resizePanelHeight(265, 160, true);
                     }
-                    anim.jumpBounce = 0.95;
-                    anim.mood = 'happy';
-                    const line = customGreeting || WAKE_GREETINGS[Math.floor(Math.random() * WAKE_GREETINGS.length)];
-                    showBubble(line, 12000);
-                    resetIdleCollapseTimer();
+                    setTimeout(() => document.getElementById('chat-inp').focus(), 180);
                   }
 
-                  function switchToActiveMode() {
-                    currentMode = 'active';
-                    document.body.classList.remove('mode-peek', 'mode-chat');
-                    document.body.classList.add('mode-active');
+                  function closeInputBar(recalcWindow = true) {
+                    document.getElementById('input-row').style.display = 'none';
+                    document.getElementById('action-row').style.display = 'flex';
+                    if (recalcWindow && window.OverlayBridge) {
+                      window.OverlayBridge.resizePanelHeight(235, 130, false);
+                    }
+                    scheduleAutoCollapse(25000);
+                  }
+
+                  function closePanelNow() {
+                    isBusy = false;
+                    clearInterval(thinkingTicker);
+                    clearTimeout(autoCollapseTimer);
                     if (window.OverlayBridge) {
-                      window.OverlayBridge.setOverlayMode('active', parseInt(config.petSizeDp, 10) || 145, false);
+                      window.OverlayBridge.collapseToPeek();
                     }
-                    resetIdleCollapseTimer();
                   }
 
-                  function openChatInput() {
-                    currentMode = 'chat';
-                    document.body.classList.remove('mode-peek', 'mode-active');
-                    document.body.classList.add('mode-chat');
+                  function startVoice() {
+                    clearTimeout(autoCollapseTimer);
+                    isBusy = true;
+                    setBubbleText('🎤 正在倾听，请说话...');
                     if (window.OverlayBridge) {
-                      window.OverlayBridge.setOverlayMode('chat', parseInt(config.petSizeDp, 10) || 145, true);
-                    }
-                    clearTimeout(idleCollapseTimer);
-                    setTimeout(() => {
-                      const inp = document.getElementById('chat-input');
-                      if (inp) inp.focus();
-                    }, 220);
-                  }
-
-                  function collapseToPeek() {
-                    currentMode = 'peek';
-                    document.getElementById('pet-bubble').style.display = 'none';
-                    document.body.classList.remove('mode-active', 'mode-chat');
-                    document.body.classList.add('mode-peek');
-                    if (window.OverlayBridge) {
-                      window.OverlayBridge.setOverlayMode('peek', parseInt(config.petSizeDp, 10) || 145, false);
-                    }
-                  }
-
-                  function resetIdleCollapseTimer() {
-                    clearTimeout(idleCollapseTimer);
-                    if (currentMode === 'active') {
-                      idleCollapseTimer = setTimeout(() => {
-                        collapseToPeek();
-                      }, 22000);
-                    }
-                  }
-
-                  function showBubble(text, durationMs = 10000) {
-                    const b = document.getElementById('pet-bubble');
-                    b.textContent = text;
-                    b.style.display = 'block';
-                    clearTimeout(bubbleHideTimer);
-                    if (durationMs > 0) {
-                      bubbleHideTimer = setTimeout(() => {
-                        b.style.display = 'none';
-                      }, durationMs);
-                    }
-                  }
-
-                  function startVoiceChat() {
-                    resetIdleCollapseTimer();
-                    if (window.OverlayBridge) {
-                      anim.mood = 'listening';
-                      showBubble('🎤 我在听，请说话...', 0);
+                      window.OverlayBridge.setPetMoodAndMouth('listening', 0);
                       window.OverlayBridge.startVoiceRecognition();
                     }
                   }
 
                   window.onVoiceResult = function(text) {
-                    anim.mood = 'calm';
                     if (text && text.trim()) {
-                      askWhaleLLM(text.trim(), true);
+                      askWhaleWithTavernPreset(text.trim());
+                    } else {
+                      isBusy = false;
+                      setBubbleText('没听清呢，点「🎤 语音」再试一次吧～');
+                      scheduleAutoCollapse(15000);
                     }
                   };
 
                   window.onVoiceError = function() {
-                    anim.mood = 'calm';
-                    showBubble('没听清呢，再点一下「🎤 语音」或用「💬 对话」打字告诉我吧～', 5000);
+                    isBusy = false;
+                    setBubbleText('没听清呢，点「🎤 语音」再试一次或点「💬 对话」打字吧～');
+                    scheduleAutoCollapse(15000);
                   };
 
-                  function submitChatText() {
-                    const inp = document.getElementById('chat-input');
-                    const text = inp.value.trim();
-                    if (!text) return;
+                  function sendText() {
+                    const inp = document.getElementById('chat-inp');
+                    const txt = inp.value.trim();
+                    if (!txt) return;
                     inp.value = '';
-                    switchToActiveMode();
-                    askWhaleLLM(text, true);
+                    closeInputBar(true);
+                    askWhaleWithTavernPreset(txt);
                   }
 
-                  async function fetchWeatherIfNeeded(lat, lon) {
-                    const now = Date.now();
-                    if (cachedWeather && (now - lastWeatherFetchMs < 25 * 60 * 1000)) {
-                      return cachedWeather;
-                    }
-                    try {
-                      let queryLat = lat;
-                      let queryLon = lon;
-                      let cityName = config.cityFallback || '本地';
-                      if (!queryLat || !queryLon) {
-                        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh`);
-                        const geoData = await geoRes.json();
-                        if (geoData.results && geoData.results.length > 0) {
-                          queryLat = geoData.results[0].latitude;
-                          queryLon = geoData.results[0].longitude;
-                          cityName = geoData.results[0].name;
-                        }
-                      }
-                      if (queryLat && queryLon) {
-                        const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${queryLat}&longitude=${queryLon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`);
-                        const wData = await wRes.json();
-                        if (wData && wData.current) {
-                          const code = wData.current.weather_code;
-                          const desc = code === 0 ? '晴朗' : (code <= 3 ? '多云' : (code <= 67 ? '有雨' : (code <= 77 ? '降雪' : '雷阵雨')));
-                          cachedWeather = `${cityName} ${desc} ${wData.current.temperature_2m}°C (湿度${wData.current.relative_humidity_2m}%)`;
-                          lastWeatherFetchMs = now;
-                        }
-                      }
-                    } catch (_) {}
-                    return cachedWeather || '未知天气';
-                  }
-
-                  async function buildFullPhoneContextSummary() {
+                  // 解析酒馆预设中的宏变量 {{char}}, {{user}}, {{time}}, {{battery}}, {{weather}}, {{song}}, {{notifications}}, {{alarm}}
+                  function replaceTavernMacros(str) {
                     let dev = {};
                     if (window.OverlayBridge) {
-                      try {
-                        dev = JSON.parse(window.OverlayBridge.getDeviceContextJson() || '{}');
-                      } catch (_) {}
+                      try { dev = JSON.parse(window.OverlayBridge.getDeviceContextJson() || '{}'); } catch (_) {}
                     }
-                    const weatherStr = await fetchWeatherIfNeeded(dev.lat, dev.lon);
-                    return `[手机实时状态快照] 时间:${dev.timeStr || '未知'} | 电量:${dev.batteryPct ?? '?'}% (${dev.isCharging ? '充电中' : '未充电'}, 温度:${dev.batteryTempC ?? '?'}°C) | 天气:${weatherStr} | 下个闹钟:${dev.nextAlarm || '无'} | 未接来电:${dev.missedCalls || 0}个 | 未读短信:${dev.unreadSms || 0}条 | 未读社交消息:${dev.unreadSocial || 0}条 | 正在放的歌:${dev.currentSong || '无'}`;
+                    const batStr = `${dev.batteryPct ?? '?'}% (${dev.isCharging ? '充电中' : '未充电'}, ${dev.batteryTempC ?? '?'}°C)`;
+                    const notifStr = `未接来电${dev.missedCalls || 0}, 未读短信${dev.unreadSms || 0}, 社交未读${dev.unreadSocial || 0}`;
+                    return (str || '')
+                      .replace(/\{\{char\}\}/g, config.charName || '大肥鱼')
+                      .replace(/\{\{user\}\}/g, config.userName || '主人')
+                      .replace(/\{\{time\}\}/g, dev.timeStr || new Date().toLocaleTimeString())
+                      .replace(/\{\{battery\}\}/g, batStr)
+                      .replace(/\{\{weather\}\}/g, cachedWeather)
+                      .replace(/\{\{alarm\}\}/g, dev.nextAlarm || '无')
+                      .replace(/\{\{notifications\}\}/g, notifStr)
+                      .replace(/\{\{song\}\}/g, dev.currentSong || '暂无播放');
                   }
 
-                  window.triggerHalfHourContextChat = async function(forceWake) {
-                    if (!isScreenOn && !forceWake) return;
-                    if (!hasActiveApiKey()) {
-                      if (forceWake) {
-                        wakeUpAndGreet('主人，先在主程序里填好 Google AI Studio 或第三方 OpenAI 的 API Key，我就能根据手机状态主动找你聊天啦！');
-                      }
+                  function hasValidKey() {
+                    return config.apiProvider === 'gemini'
+                      ? Boolean(config.geminiApiKey && config.geminiApiKey.trim())
+                      : Boolean(config.apiKey && config.apiKey.trim());
+                  }
+
+                  // 核心对话函数：使用酒馆预设 + Thinking Budget 控制 + 锁定窗口绝不中途收起
+                  async function askWhaleWithTavernPreset(userMessage) {
+                    reloadPanelConfig();
+                    if (!hasValidKey()) {
+                      isBusy = false;
+                      setBubbleText('请先打开「大肥鱼全局伴侣」主程序填好 API Key 哦！');
+                      scheduleAutoCollapse(15000);
                       return;
                     }
-                    const summary = await buildFullPhoneContextSummary();
-                    if (currentMode === 'peek') {
-                      wakeUpAndGreet('✨ 探头看看你～');
-                    }
-                    await askWhaleLLM(`${summary}\n请根据上面我手机此刻的真实状态（比如时间、电量、天气、闹钟、未读消息或正在听的歌），主动找我搭一句话（不超过55字，自然俏皮，不用把所有数字念一遍，挑最值得关心的一两个点说即可）。`, false);
-                  };
 
-                  setInterval(() => {
-                    if (isScreenOn) {
-                      window.triggerHalfHourContextChat(false);
-                    }
-                  }, 30 * 60 * 1000);
-
-                  window.onScreenStateChanged = function(on) {
-                    isScreenOn = Boolean(on);
-                  };
-
-                  window.onNativeInstantEvent = function(type, defaultLine) {
-                    if (!isScreenOn) return;
-                    wakeUpAndGreet(defaultLine);
-                    if (hasActiveApiKey()) {
-                      buildFullPhoneContextSummary().then(summary => {
-                        askWhaleLLM(`${summary}\n刚刚发生了即时事件：【${type}】，请作为桌面大肥鱼立马拉近距离跟我说句贴心话（45字以内）。`, false);
-                      });
-                    }
-                  };
-
-                  let lastCommentedSong = '';
-                  window.onNativeSongChanged = function(songInfo) {
-                    if (!isScreenOn || !songInfo || songInfo === lastCommentedSong) return;
-                    lastCommentedSong = songInfo;
-                    anim.mood = 'dancing';
-                    anim.beatBounce = 0.6;
-                    if (hasActiveApiKey() && Math.random() < 0.65) {
-                      if (currentMode === 'peek') wakeUpAndGreet(`🎵 听到你切歌啦：《${songInfo}》`);
-                      askWhaleLLM(`我刚刚在手机上播放了歌曲《${songInfo}》，请作为陪我听歌的大肥鱼简短点评或哼两句互动（45字以内）。`, false);
-                    }
-                  };
-
-                  window.onSystemAudioBeat = function(rms, isBeat) {
-                    if (rms > 0.04) {
-                      anim.mood = 'dancing';
-                      if (isBeat) anim.beatBounce = Math.min(0.85, rms * 1.1);
-                    } else if (anim.mood === 'dancing') {
-                      anim.mood = 'calm';
-                    }
-                  };
-
-                  let isTranscribingWav = false;
-                  window.onSystemAudioWav = async function(base64Wav) {
-                    if (!config.autoVideoComment || !hasActiveApiKey() || isTranscribingWav) return;
-                    isTranscribingWav = true;
-                    try {
-                      if (config.apiProvider === 'gemini') {
-                        // Google AI Studio 原生支持 WAV 音频多模态直接理解！无需额外 Whisper 接口
-                        const base = (config.geminiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
-                        const cleanModel = (config.geminiModel || 'gemini-2.5-flash').replace(/^models\//, '');
-                        const url = `${base}/models/${cleanModel}:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`;
-                        const res = await fetch(url, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            systemInstruction: { parts: [{ text: config.sysPrompt }] },
-                            contents: [{
-                              role: 'user',
-                              parts: [
-                                { inlineData: { mimeType: 'audio/wav', data: base64Wav } },
-                                { text: '上面是我手机正在播放的系统音频片段。如果能听出视频台词、歌词或明显情绪，请作为陪我看视频/听歌的大肥鱼自然吐槽或接一句话（不超过50字）；如果是无意义噪音请只回复“PASS”。' }
-                              ]
-                            }]
-                          })
-                        });
-                        if (res.ok) {
-                          const data = await res.json();
-                          const reply = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
-                          if (reply && !reply.includes('PASS')) {
-                            if (currentMode === 'peek') wakeUpAndGreet(reply);
-                            else showBubble(reply, 12000);
-                            anim.mouthOpen = 0.85;
-                          }
-                        }
-                      } else {
-                        const bin = atob(base64Wav);
-                        const arr = new Uint8Array(bin.length);
-                        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-                        const blob = new Blob([arr], { type: 'audio/wav' });
-                        const fd = new FormData();
-                        fd.append('file', blob, 'sys.wav');
-                        fd.append('model', config.asrModel || 'FunAudioLLM/SenseVoiceSmall');
-                        const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/audio/transcriptions`, {
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${config.apiKey}` },
-                          body: fd
-                        });
-                        if (res.ok) {
-                          const data = await res.json();
-                          if (data.text && data.text.trim().length >= 4) {
-                            if (currentMode === 'peek') wakeUpAndGreet('🎧 听到视频里在说...');
-                            await askWhaleLLM(`[手机正在播放的视频/音频台词]：「${data.text.trim()}」，请跟我看视频一样简短接话吐槽。`, false);
-                          }
-                        }
-                      }
-                    } catch (_) {
-                    } finally {
-                      isTranscribingWav = false;
-                    }
-                  };
-
-                  // 双引擎流式对话核心（支持 Google AI Studio Gemini SSE 与第三方 OpenAI SSE）
-                  async function askWhaleLLM(promptText, includeDeviceSnapshot) {
-                    if (!hasActiveApiKey()) {
-                      showBubble('还没有配置 API Key 哦，点开「大肥鱼全局伴侣」主程序填好就能跟我畅聊啦！', 7000);
-                      return;
-                    }
-                    anim.mood = 'thinking';
-                    showBubble('思考中...', 0);
-                    resetIdleCollapseTimer();
-
-                    let finalUserContent = promptText;
-                    if (includeDeviceSnapshot) {
-                      const snap = await buildFullPhoneContextSummary();
-                      finalUserContent = `${snap}\n用户对你说：${promptText}`;
+                    // 锁定窗口，禁止自动收起！
+                    isBusy = true;
+                    clearTimeout(autoCollapseTimer);
+                    clearInterval(thinkingTicker);
+                    if (window.OverlayBridge) {
+                      window.OverlayBridge.expandPanel('greet', false);
+                      window.OverlayBridge.setPetMoodAndMouth('thinking', 0);
                     }
 
-                    chatHistory.push({ role: 'user', content: finalUserContent });
-                    if (chatHistory.length > 14) chatHistory = chatHistory.slice(-14);
+                    const startMs = Date.now();
+                    setBubbleText('💭 思考中 (0.0s)...');
+                    thinkingTicker = setInterval(() => {
+                      const sec = ((Date.now() - startMs) / 1000).toFixed(1);
+                      setBubbleText(`💭 思考中 (${sec}s)...`);
+                    }, 200);
+
+                    const preset = config.tavernPreset || DEFAULT_TAVERN_PRESET;
+                    const entries = (preset.entries || []).filter(e => e.enabled);
+                    const topEntries = entries.filter(e => e.position !== 'bottom');
+                    const bottomEntries = entries.filter(e => e.position === 'bottom');
+
+                    const maxHist = Math.max(2, (parseInt(preset.contextDepth, 10) || 6) * 2);
+                    chatHistory.push({ role: 'user', content: userMessage });
+                    if (chatHistory.length > maxHist) {
+                      chatHistory = chatHistory.slice(-maxHist);
+                    }
 
                     try {
                       let reply = '';
+                      const temp = parseFloat(preset.temperature) || 0.85;
+                      const topP = parseFloat(preset.topP) || 0.95;
+                      const maxTok = parseInt(preset.maxTokens, 10) || 140;
+                      const thinkBudget = parseInt(preset.thinkingBudget, 10);
+
                       if (config.apiProvider === 'gemini') {
                         const base = (config.geminiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
                         const cleanModel = (config.geminiModel || 'gemini-2.5-flash').replace(/^models\//, '');
                         const url = `${base}/models/${cleanModel}:streamGenerateContent?alt=sse&key=${encodeURIComponent(config.geminiApiKey)}`;
-                        const geminiContents = chatHistory.map(m => ({
-                          role: m.role === 'assistant' ? 'model' : 'user',
-                          parts: [{ text: m.content }]
-                        }));
+
+                        const sysText = topEntries.map(e => replaceTavernMacros(e.content)).join('\n\n');
+                        const postText = bottomEntries.map(e => replaceTavernMacros(e.content)).join('\n');
+
+                        const geminiContents = chatHistory.map((m, idx) => {
+                          let txt = m.content;
+                          if (idx === chatHistory.length - 1 && postText) {
+                            txt = `${txt}\n\n${postText}`;
+                          }
+                          return {
+                            role: m.role === 'assistant' ? 'model' : 'user',
+                            parts: [{ text: txt }]
+                          };
+                        });
+
+                        const genConfig = {
+                          temperature: temp,
+                          topP: topP,
+                          maxOutputTokens: maxTok
+                        };
+                        // 关键提速：对于 gemini-2.5 系列模型，设置 thinkingBudget: 0 直接关闭思考链，实现 0.5 秒极速响应！
+                        if (!isNaN(thinkBudget) && thinkBudget >= 0 && cleanModel.includes('2.5')) {
+                          genConfig.thinkingConfig = { thinkingBudget: thinkBudget };
+                        }
+
                         const res = await fetch(url, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
-                            systemInstruction: { parts: [{ text: config.sysPrompt }] },
-                            contents: geminiContents
+                            systemInstruction: { parts: [{ text: sysText }] },
+                            contents: geminiContents,
+                            generationConfig: genConfig
                           })
                         });
                         if (!res.ok) throw new Error('Gemini HTTP ' + res.status);
 
                         const reader = res.body.getReader();
                         const decoder = new TextDecoder('utf-8');
+                        let firstChunk = true;
+
                         while (true) {
                           const { done, value } = await reader.read();
                           if (done) break;
@@ -1849,35 +2116,55 @@ jobs:
                             try {
                               const parsed = JSON.parse(payload);
                               const parts = parsed.candidates?.[0]?.content?.parts || [];
-                              const delta = parts.map(p => p.text || '').join('');
+                              // 过滤掉 thought 思考分片，只展示正文
+                              const delta = parts.filter(p => !p.thought).map(p => p.text || '').join('');
                               if (delta) {
+                                if (firstChunk) {
+                                  firstChunk = false;
+                                  clearInterval(thinkingTicker);
+                                }
                                 reply += delta;
-                                anim.mouthOpen = 0.92;
-                                showBubble(reply, 14000);
+                                setBubbleText(reply);
+                                if (window.OverlayBridge) {
+                                  window.OverlayBridge.setPetMoodAndMouth('happy', 0.9);
+                                }
                               }
                             } catch (_) {}
                           }
                         }
                       } else {
+                        const oaiMessages = [];
+                        topEntries.forEach(e => {
+                          oaiMessages.push({ role: e.role || 'system', content: replaceTavernMacros(e.content) });
+                        });
+                        chatHistory.forEach(m => oaiMessages.push({ role: m.role, content: m.content }));
+                        bottomEntries.forEach(e => {
+                          oaiMessages.push({ role: e.role || 'system', content: replaceTavernMacros(e.content) });
+                        });
+
+                        const bodyObj = {
+                          model: config.model || 'deepseek-chat',
+                          stream: true,
+                          temperature: temp,
+                          top_p: topP,
+                          max_tokens: maxTok,
+                          messages: oaiMessages
+                        };
+
                         const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${config.apiKey}`
                           },
-                          body: JSON.stringify({
-                            model: config.model || 'deepseek-chat',
-                            stream: true,
-                            messages: [
-                              { role: 'system', content: config.sysPrompt },
-                              ...chatHistory
-                            ]
-                          })
+                          body: JSON.stringify(bodyObj)
                         });
                         if (!res.ok) throw new Error('OpenAI HTTP ' + res.status);
 
                         const reader = res.body.getReader();
                         const decoder = new TextDecoder('utf-8');
+                        let firstChunk = true;
+
                         while (true) {
                           const { done, value } = await reader.read();
                           if (done) break;
@@ -1890,33 +2177,99 @@ jobs:
                               const parsed = JSON.parse(payload);
                               const delta = parsed.choices?.[0]?.delta?.content || '';
                               if (delta) {
+                                if (firstChunk) {
+                                  firstChunk = false;
+                                  clearInterval(thinkingTicker);
+                                }
                                 reply += delta;
-                                anim.mouthOpen = 0.92;
-                                showBubble(reply, 14000);
+                                setBubbleText(reply);
+                                if (window.OverlayBridge) {
+                                  window.OverlayBridge.setPetMoodAndMouth('happy', 0.9);
+                                }
                               }
                             } catch (_) {}
                           }
                         }
                       }
 
+                      clearInterval(thinkingTicker);
+                      if (!reply.trim()) {
+                        reply = '（歪头眨了眨眼，没有说出来话，检查一下模型或最大 Token 设置吧～）';
+                        setBubbleText(reply);
+                      }
+                      lastReplyText = reply;
                       chatHistory.push({ role: 'assistant', content: reply });
-                      anim.mood = 'happy';
-                      anim.jumpBounce = 0.45;
-                      resetIdleCollapseTimer();
                     } catch (err) {
-                      anim.mood = 'calm';
-                      showBubble('请求接口出错 (' + err.message + ')，请打开主程序检查接口与模型设置～', 6000);
+                      clearInterval(thinkingTicker);
+                      setBubbleText('请求出错 (' + err.message + ')，请检查主程序接口设置～');
+                    } finally {
+                      clearInterval(thinkingTicker);
+                      isBusy = false;
+                      if (window.OverlayBridge) {
+                        window.OverlayBridge.setPetMoodAndMouth('happy', 0);
+                      }
+                      // 回复完成后完整停留 28 秒再自动收起，确保你能看清每一条消息！
+                      scheduleAutoCollapse(28000);
                     }
                   }
 
-                  reloadWhaleConfig();
-                  requestAnimationFrame(renderLoop);
+                  // 每 30 分钟主动生成情境对话
+                  window.triggerHalfHourContextChat = function(forceWake) {
+                    if (!isScreenOn && !forceWake) return;
+                    reloadPanelConfig();
+                    if (!hasValidKey()) {
+                      if (forceWake && window.OverlayBridge) {
+                        window.OverlayBridge.expandPanel('greet', false);
+                        setBubbleText('主人，先在主程序里填好 API Key，我就能每半小时根据手机状态主动找你聊天啦！');
+                        scheduleAutoCollapse(15000);
+                      }
+                      return;
+                    }
+                    const prompt = replaceTavernMacros(
+                      '[定时主动关怀触发] 此刻状态：时间={{time}}，电量={{battery}}，天气={{weather}}，闹钟={{alarm}}，通知={{notifications}}，正在听的歌={{song}}。请挑一两个最值得注意的点，主动跟{{user}}搭一句话。'
+                    );
+                    askWhaleWithTavernPreset(prompt);
+                  };
+
+                  setInterval(() => {
+                    if (isScreenOn && !isBusy) {
+                      window.triggerHalfHourContextChat(false);
+                    }
+                  }, 30 * 60 * 1000);
+
+                  window.onScreenStateChanged = function(on) {
+                    isScreenOn = Boolean(on);
+                  };
+
+                  window.onNativeInstantEvent = function(type, defaultLine) {
+                    if (!isScreenOn) return;
+                    setBubbleText(defaultLine);
+                    scheduleAutoCollapse(18000);
+                    if (hasValidKey() && !isBusy) {
+                      askWhaleWithTavernPreset(`[手机刚刚发生即时事件：${type}] 请立即跟{{user}}说一句简短应景的话。`);
+                    }
+                  };
+
+                  let lastReactedSong = '';
+                  window.onNativeSongChanged = function(songInfo) {
+                    if (!isScreenOn || !songInfo || songInfo === lastReactedSong || isBusy) return;
+                    lastReactedSong = songInfo;
+                    if (hasValidKey()) {
+                      askWhaleWithTavernPreset(`[播放器切歌通知] 我刚刚开始播放歌曲《${songInfo}》，请作为陪我听歌的{{char}}简短点评或哼两句互动！`);
+                    } else if (window.OverlayBridge) {
+                      window.OverlayBridge.expandPanel('greet', false);
+                      setBubbleText(`🎵 正在陪你听：《${songInfo}》`);
+                      scheduleAutoCollapse(12000);
+                    }
+                  };
+
+                  reloadPanelConfig();
                 </script>
               </body>
               </html>
               """).lstrip())
 
-          # 9. 生成主程序控制面板页面 control-panel.html（新增 Google AI Studio 与第三方 OpenAI 切换 + 「🔗 连接并拉取可用模型」按钮与下拉菜单）
+          # 10. 生成主程序控制台页面 control-panel.html（含 QQ 企鹅级小尺寸滑条 32dp~150dp + 酒馆式模块化预设编辑器 + 思考预算 0 秒回设置 + Salt Player 状态检测）
           with open(os.path.join(www_dir, 'control-panel.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
@@ -1924,7 +2277,7 @@ jobs:
               <head>
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                <title>大肥鱼全局伴侣 · 控制台</title>
+                <title>大肥鱼全局伴侣 v6 · 酒馆预设控制台</title>
                 <style>
                   :root {
                     --bg: #0f172a;
@@ -1935,60 +2288,54 @@ jobs:
                   }
                   * { box-sizing: border-box; }
                   body {
-                    margin: 0; padding: 18px 16px 48px; background: var(--bg); color: var(--text);
+                    margin: 0; padding: 16px 14px 56px; background: var(--bg); color: var(--text);
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                   }
-                  .header {
-                    display: flex; align-items: center; gap: 14px; margin-bottom: 18px;
-                  }
-                  .header img {
-                    width: 56px; height: 56px; border-radius: 16px; background: #334155; object-fit: contain;
-                  }
+                  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+                  .header img { width: 50px; height: 50px; border-radius: 14px; background: #334155; object-fit: contain; }
                   .card {
                     background: var(--card); border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: 18px; padding: 16px; margin-bottom: 14px;
+                    border-radius: 16px; padding: 14px; margin-bottom: 14px;
                   }
                   .card h3 {
-                    margin: 0 0 10px; font-size: 15px; display: flex; justify-content: space-between; align-items: center;
+                    margin: 0 0 10px; font-size: 14.5px; display: flex; justify-content: space-between; align-items: center;
                   }
                   .btn {
                     background: #0284c7; color: #fff; border: none; border-radius: 999px;
-                    padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;
+                    padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;
                     margin-top: 8px;
                   }
-                  .btn.secondary {
-                    background: #334155; color: #e2e8f0;
-                  }
-                  .btn.connect {
-                    background: #0d9488; color: #ffffff;
-                  }
-                  .provider-tabs {
-                    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
-                  }
+                  .btn.secondary { background: #334155; color: #e2e8f0; }
+                  .btn.connect { background: #0d9488; color: #ffffff; }
+                  .provider-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
                   .tab-btn {
                     background: #0f172a; color: var(--mute); border: 1.5px solid rgba(255,255,255,0.12);
-                    border-radius: 12px; padding: 10px 8px; font-size: 13px; font-weight: 600;
+                    border-radius: 12px; padding: 9px 6px; font-size: 12.5px; font-weight: 600;
                     cursor: pointer; text-align: center;
                   }
-                  .tab-btn.active {
-                    background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: #38bdf8;
-                  }
-                  .status-grid {
-                    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;
-                  }
+                  .tab-btn.active { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: #38bdf8; }
+                  .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; }
                   .stat-item {
-                    background: rgba(15, 23, 42, 0.65); padding: 9px 11px; border-radius: 10px;
+                    background: rgba(15, 23, 42, 0.65); padding: 8px 10px; border-radius: 10px;
                     border: 1px solid rgba(255,255,255,0.06);
                   }
                   .stat-item span { display: block; color: var(--mute); font-size: 11px; margin-bottom: 2px; }
-                  .stat-item b { font-size: 13px; color: #38bdf8; }
-                  .field { margin-bottom: 12px; }
-                  .field label { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); margin-bottom: 5px; }
+                  .stat-item b { font-size: 12.5px; color: #38bdf8; }
+                  .field { margin-bottom: 10px; }
+                  .field label { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); margin-bottom: 4px; }
                   .field input, .field select, .field textarea {
-                    width: 100%; padding: 9px 12px; border-radius: 10px;
-                    border: 1px solid rgba(255,255,255,0.16); background: #0f172a; color: var(--text); font-size: 13px;
+                    width: 100%; padding: 8px 11px; border-radius: 9px;
+                    border: 1px solid rgba(255,255,255,0.16); background: #0f172a; color: var(--text); font-size: 12.5px;
                   }
                   input[type="range"] { padding: 0; accent-color: var(--accent); }
+                  /* 酒馆风格预设条目卡片 */
+                  .st-entry {
+                    background: rgba(15, 23, 42, 0.78); border: 1px solid rgba(56, 189, 248, 0.25);
+                    border-radius: 12px; padding: 10px; margin-bottom: 10px;
+                  }
+                  .st-entry-head {
+                    display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12.5px; font-weight: 600;
+                  }
                   #connect-status {
                     font-size: 12px; margin-top: 8px; padding: 8px 12px; border-radius: 10px;
                     background: rgba(15, 23, 42, 0.7); display: none;
@@ -1999,124 +2346,48 @@ jobs:
                 <div class="header">
                   <img src="whale-official-icon.png" onerror="this.style.display='none'" />
                   <div>
-                    <h2 style="margin:0; font-size:18px;">🐟 大肥鱼全局悬浮伴侣 v5</h2>
-                    <p style="margin:4px 0 0; font-size:12px; color:var(--mute);">Google AI Studio + 第三方 OpenAI 双引擎 · 贴边半探头</p>
+                    <h2 style="margin:0; font-size:17px;">🐟 大肥鱼全局伴侣 v6</h2>
+                    <p style="margin:3px 0 0; font-size:11.5px; color:var(--mute);">QQ 企鹅级小巧零遮挡 · 酒馆预设秒回 · Salt Player 识曲</p>
                   </div>
                 </div>
 
-                <!-- 1. 全局悬浮窗与权限开关 -->
+                <!-- 1. 悬浮球开关与权限 -->
                 <div class="card">
                   <h3>
-                    <span>🚀 第一步：开启全局悬浮窗与状态感知</span>
+                    <span>🚀 第一步：开启零遮挡悬浮球与识曲授权</span>
                     <span id="overlay-badge" style="font-size:12px; color:#38bdf8;">检测中...</span>
                   </h3>
-                  <button class="btn" id="btn-toggle-overlay" onclick="MainBridge.toggleFloatingOverlay()">开启全局悬浮桌宠（跨应用显示）</button>
+                  <button class="btn" id="btn-toggle-overlay" onclick="MainBridge.toggleFloatingOverlay()">开启全局悬浮桌宠</button>
                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;">
-                    <button class="btn secondary" onclick="MainBridge.openNotificationAccessSettings()">🔔 授权通知/歌名监听</button>
+                    <button class="btn secondary" onclick="MainBridge.openNotificationAccessSettings()">🔔 授权通知/Salt Player 识曲</button>
                     <button class="btn secondary" onclick="toggleSysAudio()">🎧 开启系统内录律动</button>
                   </div>
-                  <button class="btn secondary" onclick="MainBridge.triggerTestContextGreeting()">✨ 立即让大肥鱼根据当前手机状态跟我搭话</button>
+                  <button class="btn secondary" onclick="MainBridge.triggerTestContextGreeting()">✨ 立即测试根据手机/音乐状态搭话</button>
                 </div>
 
-                <!-- 2. 双接口引擎设置（Google AI Studio 官方 API + 第三方 OpenAI 接口 + 一键连接拉取模型） -->
+                <!-- 2. 尺寸与外观调节（已缩小至 QQ 企鹅 58dp 默认大小，贴图 100% 跟随缩放） -->
                 <div class="card">
-                  <h3>🔌 第二步：选择 AI 接口并连接拉取模型</h3>
-                  <div class="provider-tabs">
-                    <div class="tab-btn active" id="tab-gemini" onclick="switchProviderTab('gemini')">✨ Google AI Studio<br><span style="font-size:11px;font-weight:400;">官方 Gemini 接口</span></div>
-                    <div class="tab-btn" id="tab-openai" onclick="switchProviderTab('openai')">🌐 第三方 OpenAI 格式<br><span style="font-size:11px;font-weight:400;">DeepSeek / 硅基 / NewAPI</span></div>
-                  </div>
-
-                  <!-- Google AI Studio 专属配置区 -->
-                  <div id="panel-gemini">
-                    <div class="field">
-                      <label><span>Google AI Studio API Key（在 aistudio.google.com 获取）</span></label>
-                      <input id="cfg-gemini-key" type="password" placeholder="AIzaSy..." />
-                    </div>
-                    <div class="field">
-                      <label><span>Gemini 接口地址（默认官方直连，也可填你自己的反代地址）</span></label>
-                      <input id="cfg-gemini-url" placeholder="https://generativelanguage.googleapis.com/v1beta" />
-                    </div>
-                    <button class="btn connect" onclick="connectAndFetchModels('gemini')">🔗 连接 Google AI Studio 并拉取可用模型</button>
-                    <div class="field" style="margin-top:12px;">
-                      <label><span>选择拉取到的 Gemini 模型（或直接在下方输入框手填）</span></label>
-                      <select id="sel-gemini-models" onchange="if(this.value) document.getElementById('cfg-gemini-model').value=this.value; saveAllConfig();">
-                        <option value="gemini-2.5-flash">gemini-2.5-flash（推荐 · 速度快且支持原生听音频）</option>
-                        <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-                        <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label><span>当前使用的 Gemini 模型 ID</span></label>
-                      <input id="cfg-gemini-model" placeholder="gemini-2.5-flash" />
-                    </div>
-                  </div>
-
-                  <!-- 第三方 OpenAI 兼容接口配置区 -->
-                  <div id="panel-openai" style="display:none;">
-                    <div class="field">
-                      <label><span>API Base URL（兼容所有 OpenAI 格式，如 DeepSeek / 硅基流动 / NewAPI）</span></label>
-                      <input id="cfg-base-url" placeholder="https://api.deepseek.com/v1" />
-                    </div>
-                    <div class="field">
-                      <label><span>API Key</span></label>
-                      <input id="cfg-api-key" type="password" placeholder="sk-..." />
-                    </div>
-                    <button class="btn connect" onclick="connectAndFetchModels('openai')">🔗 连接第三方接口并拉取可用模型</button>
-                    <div class="field" style="margin-top:12px;">
-                      <label><span>选择拉取到的可用模型（点击上方连接按钮后自动刷新）</span></label>
-                      <select id="sel-openai-models" onchange="if(this.value) document.getElementById('cfg-model').value=this.value; saveAllConfig();">
-                        <option value="deepseek-chat">deepseek-chat（默认）</option>
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label><span>当前使用的对话模型 ID（Chat Model）</span></label>
-                      <input id="cfg-model" placeholder="deepseek-chat" />
-                    </div>
-                    <div class="field">
-                      <label><span>语音转文字模型（用于第三方接口下识别系统视频声音）</span></label>
-                      <input id="cfg-asr-model" placeholder="FunAudioLLM/SenseVoiceSmall 或 whisper-1" />
-                    </div>
-                  </div>
-
-                  <div id="connect-status"></div>
-
-                  <div class="field" style="margin-top:12px;">
-                    <label><span>默认城市名（当未开 GPS 定位时用于查询免 Key 实时天气）</span></label>
-                    <input id="cfg-city" placeholder="Shanghai 或 Beijing" />
+                  <h3>🎨 第二步：桌宠大小与配色（贴图实时等比缩放）</h3>
+                  <div class="field">
+                    <label>
+                      <span>桌宠大小（32dp 超迷你 ~ 58dp QQ企鹅同款 ~ 150dp）</span>
+                      <b id="lbl-size" style="color:#38bdf8;">58 dp</b>
+                    </label>
+                    <input type="range" id="cfg-size" min="32" max="150" step="2" value="58" oninput="onSizeSliderChange(this.value)" />
                   </div>
                   <div class="field">
-                    <label><span>看视频自动识别台词并吐槽（Gemini 模式下原生多模态直听音频）</span></label>
-                    <select id="cfg-auto-video">
-                      <option value="false">仅跟随音乐节拍跳舞（省 Token）</option>
-                      <option value="true">每 6 秒识别一次系统播放声音并主动吐槽</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label><span>大肥鱼角色人设（System Prompt）</span></label>
-                    <textarea id="cfg-sys-prompt" rows="3"></textarea>
-                  </div>
-                  <button class="btn" onclick="saveAllConfig(true)">💾 保存全部设置并同步给悬浮桌宠</button>
-                </div>
-
-                <!-- 3. 桌宠大小、配色与外观自由调节 -->
-                <div class="card">
-                  <h3>🎨 外观与尺寸自由调节（实时同步悬浮窗）</h3>
-                  <div class="field">
-                    <label><span>桌宠身体大小（90dp ~ 260dp）</span><b id="lbl-size">145 dp</b></label>
-                    <input type="range" id="cfg-size" min="90" max="260" step="5" value="145" oninput="document.getElementById('lbl-size').textContent=this.value+' dp'; saveAllConfig();" />
-                  </div>
-                  <div class="field">
-                    <label><span>对话气泡文字大小</span></label>
-                    <select id="cfg-font" onchange="saveAllConfig()">
-                      <option value="100">100%（标准）</option>
-                      <option value="125">125%（偏大）</option>
-                      <option value="150">150%（特大清晰）</option>
+                    <label><span>气泡字体缩放</span></label>
+                    <select id="cfg-font" onchange="saveAllConfig(false)">
+                      <option value="90">90%（紧凑精致）</option>
+                      <option value="100" selected>100%（标准）</option>
+                      <option value="120">120%（偏大）</option>
+                      <option value="140">140%（特大）</option>
                     </select>
                   </div>
                   <div class="field">
                     <label><span>大肥鱼配色方案（8 套主题）</span></label>
-                    <select id="cfg-scheme" onchange="saveAllConfig()">
-                      <option value="deepseek_blue">🌊 DeepSeek 经典深海蓝（默认）</option>
+                    <select id="cfg-scheme" onchange="saveAllConfig(false)">
+                      <option value="deepseek_blue">🌊 DeepSeek 经典深海蓝</option>
                       <option value="claude_amber">🍯 Claude 暖阳琥珀橘</option>
                       <option value="sakura_pink">🌸 樱花元气粉</option>
                       <option value="mint_emerald">🌿 薄荷翡翠绿</option>
@@ -2128,10 +2399,114 @@ jobs:
                   </div>
                 </div>
 
-                <!-- 4. KLWP 级手机实时状态监控预览 -->
+                <!-- 3. 酒馆（SillyTavern）风格预设与极速秒回编辑器 -->
+                <div class="card">
+                  <h3>🍺 第三步：酒馆风（SillyTavern）预设与思考耗时控制</h3>
+                  <div class="field">
+                    <label><span>⚡ 思考耗时控制（Thinking Budget · 解决思考太慢核心开关！）</span></label>
+                    <select id="st-thinking" onchange="saveAllConfig(false)">
+                      <option value="0">🚀 0（彻底关闭思考链 · 0.5秒极速秒回！）</option>
+                      <option value="256">⚡ 256 Tokens（极简轻度思考 · 约1.5秒）</option>
+                      <option value="1024">🧠 1024 Tokens（中度思考）</option>
+                      <option value="-1">🐢 模型默认思考（耗时较长）</option>
+                    </select>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <div class="field">
+                      <label><span>温度 (Temperature)</span></label>
+                      <input type="number" step="0.05" id="st-temp" value="0.85" onchange="saveAllConfig(false)" />
+                    </div>
+                    <div class="field">
+                      <label><span>最大回复字数 (Max Tokens)</span></label>
+                      <input type="number" id="st-max-tokens" value="140" onchange="saveAllConfig(false)" />
+                    </div>
+                    <div class="field">
+                      <label><span>角色名 ({{char}})</span></label>
+                      <input id="cfg-char-name" value="大肥鱼" onchange="saveAllConfig(false)" />
+                    </div>
+                    <div class="field">
+                      <label><span>你的称呼 ({{user}})</span></label>
+                      <input id="cfg-user-name" value="主人" onchange="saveAllConfig(false)" />
+                    </div>
+                  </div>
+
+                  <p style="font-size:11.5px; color:var(--mute); margin:6px 0 8px;">
+                    👇 <b>酒馆模块化提示词条目</b>（支持独立开关与宏变量 <code>{{char}}</code> <code>{{user}}</code> <code>{{time}}</code> <code>{{battery}}</code> <code>{{weather}}</code> <code>{{song}}</code> <code>{{notifications}}</code>）：
+                  </p>
+                  <div id="st-entries-container"></div>
+
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <button class="btn secondary" onclick="exportTavernPreset()">📤 导出预设 JSON</button>
+                    <button class="btn secondary" onclick="importTavernPreset()">📥 导入预设 JSON</button>
+                  </div>
+                </div>
+
+                <!-- 4. AI 接口配置与模型拉取 -->
+                <div class="card">
+                  <h3>🔌 第四步：AI 接口与一键拉取模型</h3>
+                  <div class="provider-tabs">
+                    <div class="tab-btn active" id="tab-gemini" onclick="switchProviderTab('gemini')">✨ Google AI Studio<br><span style="font-size:11px;font-weight:400;">官方 Gemini 接口</span></div>
+                    <div class="tab-btn" id="tab-openai" onclick="switchProviderTab('openai')">🌐 第三方 OpenAI 格式<br><span style="font-size:11px;font-weight:400;">DeepSeek / 硅基 / NewAPI</span></div>
+                  </div>
+
+                  <div id="panel-gemini">
+                    <div class="field">
+                      <label><span>Google AI Studio API Key</span></label>
+                      <input id="cfg-gemini-key" type="password" placeholder="AIzaSy..." />
+                    </div>
+                    <div class="field">
+                      <label><span>Gemini 接口地址</span></label>
+                      <input id="cfg-gemini-url" placeholder="https://generativelanguage.googleapis.com/v1beta" />
+                    </div>
+                    <button class="btn connect" onclick="connectAndFetchModels('gemini')">🔗 连接 Google AI Studio 并拉取可用模型</button>
+                    <div class="field" style="margin-top:10px;">
+                      <label><span>选择拉取到的 Gemini 模型</span></label>
+                      <select id="sel-gemini-models" onchange="if(this.value) document.getElementById('cfg-gemini-model').value=this.value; saveAllConfig(false);">
+                        <option value="gemini-2.5-flash">gemini-2.5-flash（推荐 · 配思考预算0秒回）</option>
+                        <option value="gemini-2.0-flash">gemini-2.0-flash（无思考链 · 天生秒回）</option>
+                        <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label><span>当前使用的 Gemini 模型 ID</span></label>
+                      <input id="cfg-gemini-model" placeholder="gemini-2.5-flash" />
+                    </div>
+                  </div>
+
+                  <div id="panel-openai" style="display:none;">
+                    <div class="field">
+                      <label><span>API Base URL</span></label>
+                      <input id="cfg-base-url" placeholder="https://api.deepseek.com/v1" />
+                    </div>
+                    <div class="field">
+                      <label><span>API Key</span></label>
+                      <input id="cfg-api-key" type="password" placeholder="sk-..." />
+                    </div>
+                    <button class="btn connect" onclick="connectAndFetchModels('openai')">🔗 连接第三方接口并拉取可用模型</button>
+                    <div class="field" style="margin-top:10px;">
+                      <label><span>选择拉取到的可用模型</span></label>
+                      <select id="sel-openai-models" onchange="if(this.value) document.getElementById('cfg-model').value=this.value; saveAllConfig(false);">
+                        <option value="deepseek-chat">deepseek-chat</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label><span>当前使用的对话模型 ID</span></label>
+                      <input id="cfg-model" placeholder="deepseek-chat" />
+                    </div>
+                  </div>
+
+                  <div id="connect-status"></div>
+                  <div class="field" style="margin-top:10px;">
+                    <label><span>默认城市名（用于查询免 Key 实时天气）</span></label>
+                    <input id="cfg-city" placeholder="Shanghai" />
+                  </div>
+                  <button class="btn" onclick="saveAllConfig(true)">💾 保存全部设置并同步给悬浮球</button>
+                </div>
+
+                <!-- 5. 手机与 Salt Player 识曲状态实时监控 -->
                 <div class="card">
                   <h3>
-                    <span>📱 手机实时状态感知（每 30 分钟自动生成对话）</span>
+                    <span>📱 手机与 Salt Player 音乐实时状态</span>
                     <span style="font-size:11px; color:var(--mute); cursor:pointer;" onclick="refreshDashboard()">🔄 刷新</span>
                   </h3>
                   <div class="status-grid">
@@ -2139,11 +2514,65 @@ jobs:
                     <div class="stat-item"><span>下一个闹钟</span><b id="st-alarm">--</b></div>
                     <div class="stat-item"><span>未接来电 / 未读短信</span><b id="st-calls-sms">--</b></div>
                     <div class="stat-item"><span>未读微信与社交消息</span><b id="st-social">--</b></div>
-                    <div class="stat-item" style="grid-column: span 2;"><span>🎵 正在播放的歌曲（切歌自动感知）</span><b id="st-song">暂无播放</b></div>
+                    <div class="stat-item" style="grid-column: span 2;">
+                      <span>🎵 正在播放歌曲（支持 Salt Player / 椒盐音乐 MediaSession）</span>
+                      <b id="st-song">暂无播放</b>
+                    </div>
                   </div>
                 </div>
 
                 <script>
+                  const DEFAULT_TAVERN_PRESET = {
+                    presetName: '⚡ 极速秒回桌宠预设（默认）',
+                    thinkingBudget: 0,
+                    temperature: 0.85,
+                    topP: 0.95,
+                    maxTokens: 140,
+                    contextDepth: 6,
+                    entries: [
+                      {
+                        id: 'main_sys',
+                        name: '1. 主系统指令 (Main Prompt)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'top',
+                        content: '你将扮演住在用户手机屏幕边缘的桌面宠物「{{char}}」与「{{user}}」互动。直接输出{{char}}说的台词，不要输出任何动作括号描写、心理活动或思考过程。'
+                      },
+                      {
+                        id: 'char_card',
+                        name: '2. 角色设定卡 (Character Card)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'top',
+                        content: '{{char}}是一只蓝白配色的小鲸鱼娘（大肥鱼），性格灵动粘人、温柔俏皮，偶尔爱吐槽。称呼{{user}}为“主人”。'
+                      },
+                      {
+                        id: 'user_persona',
+                        name: '3. 用户人设 (User Persona)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'top',
+                        content: '{{user}}是{{char}}最信赖的伙伴，日常带着手机听歌、看视频、聊天。'
+                      },
+                      {
+                        id: 'world_info_phone',
+                        name: '4. 世界书：手机状态与音乐注入 (World Info)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'top',
+                        content: '【当前手机实时状态】时间:{{time}} | 电量:{{battery}} | 天气:{{weather}} | 闹钟:{{alarm}} | 通知:{{notifications}} | 正在播放音乐:{{song}}。仅在话题相关或主动关怀时自然提及。'
+                      },
+                      {
+                        id: 'post_history_jb',
+                        name: '5. 尾置强约束 (Post-History 秒回短句约束)',
+                        enabled: true,
+                        role: 'system',
+                        position: 'bottom',
+                        content: '[输出铁律：严禁输出思维链，直接用口语回复1~2句话，总字数严格控制在55字以内！]'
+                      }
+                    ]
+                  };
+
                   const DEFAULT_CFG = {
                     apiProvider: 'gemini',
                     geminiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
@@ -2153,15 +2582,52 @@ jobs:
                     apiKey: '',
                     model: 'deepseek-chat',
                     asrModel: 'FunAudioLLM/SenseVoiceSmall',
-                    petSizeDp: 145,
+                    petSizeDp: 58,
                     fontScale: 100,
                     colorScheme: 'deepseek_blue',
                     cityFallback: 'Shanghai',
                     autoVideoComment: false,
-                    sysPrompt: '你是住在用户手机屏幕上的「大肥鱼」（DeepSeek 蓝白小鲸鱼桌宠），性格灵动粘人、俏皮体贴。每次说话简短自然（不超过65字）。收到手机电量、闹钟、未读消息、天气或歌名信息时，像贴心小伴侣一样自然叮嘱或吐槽。'
+                    userName: '主人',
+                    charName: '大肥鱼',
+                    tavernPreset: DEFAULT_TAVERN_PRESET
                   };
 
                   let currentProvider = 'gemini';
+                  let currentEntries = JSON.parse(JSON.stringify(DEFAULT_TAVERN_PRESET.entries));
+
+                  function renderTavernEntries() {
+                    const box = document.getElementById('st-entries-container');
+                    box.innerHTML = '';
+                    currentEntries.forEach((entry, idx) => {
+                      const div = document.createElement('div');
+                      div.className = 'st-entry';
+                      div.innerHTML = `
+                        <div class="st-entry-head">
+                          <span>${entry.name}</span>
+                          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#38bdf8;">
+                            <input type="checkbox" ${entry.enabled ? 'checked' : ''} onchange="toggleEntry(${idx}, this.checked)" /> 启用
+                          </label>
+                        </div>
+                        <textarea rows="2" style="width:100%;padding:7px;border-radius:8px;background:#0f172a;color:#f8fafc;border:1px solid rgba(255,255,255,0.14);font-size:12px;" oninput="updateEntryContent(${idx}, this.value)">${entry.content}</textarea>
+                      `;
+                      box.appendChild(div);
+                    });
+                  }
+
+                  window.toggleEntry = function(idx, checked) {
+                    currentEntries[idx].enabled = checked;
+                    saveAllConfig(false);
+                  };
+
+                  window.updateEntryContent = function(idx, val) {
+                    currentEntries[idx].content = val;
+                    saveAllConfig(false);
+                  };
+
+                  window.onSizeSliderChange = function(val) {
+                    document.getElementById('lbl-size').textContent = val + ' dp';
+                    saveAllConfig(false);
+                  };
 
                   function switchProviderTab(provider) {
                     currentProvider = provider;
@@ -2179,25 +2645,20 @@ jobs:
                     el.textContent = msg;
                   }
 
-                  // 点击「🔗 连接并拉取可用模型」核心逻辑（分别支持 Google AI Studio 与第三方 OpenAI /models）
                   async function connectAndFetchModels(provider) {
-                    showConnectStatus('⏳ 正在连接接口并拉取可用模型列表...', false);
+                    showConnectStatus('⏳ 正在连接并拉取可用模型列表...', false);
                     try {
                       if (provider === 'gemini') {
                         const key = document.getElementById('cfg-gemini-key').value.trim();
                         const base = (document.getElementById('cfg-gemini-url').value.trim() || DEFAULT_CFG.geminiBaseUrl).replace(/\/$/, '');
-                        if (!key) {
-                          showConnectStatus('❌ 请先填写 Google AI Studio API Key', true);
-                          return;
-                        }
+                        if (!key) { showConnectStatus('❌ 请先填写 Google AI Studio API Key', true); return; }
                         const res = await fetch(`${base}/models?pageSize=100&key=${encodeURIComponent(key)}`);
                         if (!res.ok) throw new Error('HTTP ' + res.status);
                         const data = await res.json();
                         const models = (data.models || []).filter(m =>
                           Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent')
                         );
-                        if (models.length === 0) throw new Error('未找到支持对话生成的模型');
-
+                        if (models.length === 0) throw new Error('未找到可用模型');
                         const sel = document.getElementById('sel-gemini-models');
                         sel.innerHTML = '';
                         models.forEach(m => {
@@ -2207,26 +2668,14 @@ jobs:
                           opt.textContent = m.displayName ? `${id} (${m.displayName})` : id;
                           sel.appendChild(opt);
                         });
-                        const cur = document.getElementById('cfg-gemini-model').value.trim();
-                        if (models.some(m => m.name.replace(/^models\//, '') === cur)) {
-                          sel.value = cur;
-                        } else {
-                          sel.selectedIndex = 0;
-                          document.getElementById('cfg-gemini-model').value = sel.value;
-                        }
-                        localStorage.setItem('whale_v5_gemini_models', JSON.stringify(models.map(m => ({
-                          id: (m.name || '').replace(/^models\//, ''),
-                          label: m.displayName ? `${(m.name || '').replace(/^models\//, '')} (${m.displayName})` : (m.name || '').replace(/^models\//, '')
-                        }))));
+                        sel.selectedIndex = 0;
+                        document.getElementById('cfg-gemini-model').value = sel.value;
                         saveAllConfig(false);
-                        showConnectStatus(`✅ Google AI Studio 连接成功！已拉取 ${models.length} 个可用 Gemini 模型。`, false);
+                        showConnectStatus(`✅ 连接成功！已拉取 ${models.length} 个 Gemini 模型。`, false);
                       } else {
                         const key = document.getElementById('cfg-api-key').value.trim();
                         const base = (document.getElementById('cfg-base-url').value.trim() || DEFAULT_CFG.baseUrl).replace(/\/$/, '');
-                        if (!key) {
-                          showConnectStatus('❌ 请先填写第三方接口 API Key', true);
-                          return;
-                        }
+                        if (!key) { showConnectStatus('❌ 请先填写 API Key', true); return; }
                         const res = await fetch(`${base}/models`, {
                           method: 'GET',
                           headers: { 'Authorization': `Bearer ${key}` }
@@ -2234,8 +2683,7 @@ jobs:
                         if (!res.ok) throw new Error('HTTP ' + res.status);
                         const data = await res.json();
                         const list = Array.isArray(data.data) ? data.data : (Array.isArray(data.models) ? data.models : []);
-                        if (list.length === 0) throw new Error('接口返回的模型列表为空');
-
+                        if (list.length === 0) throw new Error('模型列表为空');
                         const sel = document.getElementById('sel-openai-models');
                         sel.innerHTML = '';
                         list.forEach(item => {
@@ -2245,75 +2693,73 @@ jobs:
                           opt.textContent = id;
                           sel.appendChild(opt);
                         });
-                        const cur = document.getElementById('cfg-model').value.trim();
-                        if (list.some(item => (item.id || item.name) === cur)) {
-                          sel.value = cur;
-                        } else {
-                          sel.selectedIndex = 0;
-                          document.getElementById('cfg-model').value = sel.value;
-                        }
-                        localStorage.setItem('whale_v5_openai_models', JSON.stringify(list.map(i => i.id || i.name || String(i))));
+                        sel.selectedIndex = 0;
+                        document.getElementById('cfg-model').value = sel.value;
                         saveAllConfig(false);
-                        showConnectStatus(`✅ 第三方接口连接成功！已拉取 ${list.length} 个可用模型。`, false);
+                        showConnectStatus(`✅ 连接成功！已拉取 ${list.length} 个模型。`, false);
                       }
                     } catch (err) {
-                      showConnectStatus(`❌ 连接或拉取模型失败 (${err.message})，请检查接口地址与 Key 是否正确。`, true);
+                      showConnectStatus(`❌ 拉取失败 (${err.message})`, true);
                     }
                   }
 
-                  function restoreCachedModelLists() {
+                  window.exportTavernPreset = function() {
+                    const presetJson = JSON.stringify({
+                      thinkingBudget: parseInt(document.getElementById('st-thinking').value, 10),
+                      temperature: parseFloat(document.getElementById('st-temp').value) || 0.85,
+                      maxTokens: parseInt(document.getElementById('st-max-tokens').value, 10) || 140,
+                      entries: currentEntries
+                    }, null, 2);
+                    prompt('复制下方酒馆预设 JSON 进行备份或分享：', presetJson);
+                  };
+
+                  window.importTavernPreset = function() {
+                    const raw = prompt('请粘贴酒馆预设 JSON：');
+                    if (!raw) return;
                     try {
-                      const gList = JSON.parse(localStorage.getItem('whale_v5_gemini_models') || '[]');
-                      if (gList.length > 0) {
-                        const sel = document.getElementById('sel-gemini-models');
-                        sel.innerHTML = '';
-                        gList.forEach(m => {
-                          const opt = document.createElement('option');
-                          opt.value = m.id;
-                          opt.textContent = m.label || m.id;
-                          sel.appendChild(opt);
-                        });
+                      const obj = JSON.parse(raw);
+                      if (Array.isArray(obj.entries)) {
+                        currentEntries = obj.entries;
+                        renderTavernEntries();
                       }
-                      const oList = JSON.parse(localStorage.getItem('whale_v5_openai_models') || '[]');
-                      if (oList.length > 0) {
-                        const sel = document.getElementById('sel-openai-models');
-                        sel.innerHTML = '';
-                        oList.forEach(id => {
-                          const opt = document.createElement('option');
-                          opt.value = id;
-                          opt.textContent = id;
-                          sel.appendChild(opt);
-                        });
-                      }
-                    } catch (_) {}
-                  }
+                      if (typeof obj.thinkingBudget === 'number') document.getElementById('st-thinking').value = String(obj.thinkingBudget);
+                      if (typeof obj.temperature === 'number') document.getElementById('st-temp').value = String(obj.temperature);
+                      if (typeof obj.maxTokens === 'number') document.getElementById('st-max-tokens').value = String(obj.maxTokens);
+                      saveAllConfig(true);
+                    } catch (e) {
+                      alert('JSON 格式不正确：' + e.message);
+                    }
+                  };
 
                   function loadForm() {
-                    restoreCachedModelLists();
-                    let cfg = Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem('whale_v5_cfg') || '{}'));
+                    let cfg = Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem('whale_v6_cfg') || '{}'));
                     document.getElementById('cfg-gemini-key').value = cfg.geminiApiKey || '';
                     document.getElementById('cfg-gemini-url').value = cfg.geminiBaseUrl || DEFAULT_CFG.geminiBaseUrl;
                     document.getElementById('cfg-gemini-model').value = cfg.geminiModel || DEFAULT_CFG.geminiModel;
-                    document.getElementById('sel-gemini-models').value = cfg.geminiModel || DEFAULT_CFG.geminiModel;
-
                     document.getElementById('cfg-base-url').value = cfg.baseUrl || DEFAULT_CFG.baseUrl;
                     document.getElementById('cfg-api-key').value = cfg.apiKey || '';
                     document.getElementById('cfg-model').value = cfg.model || DEFAULT_CFG.model;
-                    document.getElementById('sel-openai-models').value = cfg.model || DEFAULT_CFG.model;
-                    document.getElementById('cfg-asr-model').value = cfg.asrModel || DEFAULT_CFG.asrModel;
+                    document.getElementById('cfg-size').value = cfg.petSizeDp || 58;
+                    document.getElementById('lbl-size').textContent = (cfg.petSizeDp || 58) + ' dp';
+                    document.getElementById('cfg-font').value = String(cfg.fontScale || 100);
+                    document.getElementById('cfg-scheme').value = cfg.colorScheme || 'deepseek_blue';
+                    document.getElementById('cfg-city').value = cfg.cityFallback || 'Shanghai';
+                    document.getElementById('cfg-char-name').value = cfg.charName || '大肥鱼';
+                    document.getElementById('cfg-user-name').value = cfg.userName || '主人';
 
-                    document.getElementById('cfg-size').value = cfg.petSizeDp;
-                    document.getElementById('lbl-size').textContent = cfg.petSizeDp + ' dp';
-                    document.getElementById('cfg-font').value = String(cfg.fontScale);
-                    document.getElementById('cfg-scheme').value = cfg.colorScheme;
-                    document.getElementById('cfg-city').value = cfg.cityFallback;
-                    document.getElementById('cfg-auto-video').value = String(Boolean(cfg.autoVideoComment));
-                    document.getElementById('cfg-sys-prompt').value = cfg.sysPrompt;
-
+                    const preset = cfg.tavernPreset || DEFAULT_TAVERN_PRESET;
+                    document.getElementById('st-thinking').value = String(preset.thinkingBudget ?? 0);
+                    document.getElementById('st-temp').value = String(preset.temperature ?? 0.85);
+                    document.getElementById('st-max-tokens').value = String(preset.maxTokens ?? 140);
+                    if (Array.isArray(preset.entries) && preset.entries.length > 0) {
+                      currentEntries = preset.entries;
+                    }
+                    renderTavernEntries();
                     switchProviderTab(cfg.apiProvider || 'gemini');
                   }
 
                   function saveAllConfig(showAlert) {
+                    const sizeDp = parseInt(document.getElementById('cfg-size').value, 10) || 58;
                     const cfg = {
                       apiProvider: currentProvider,
                       geminiBaseUrl: document.getElementById('cfg-gemini-url').value.trim() || DEFAULT_CFG.geminiBaseUrl,
@@ -2322,27 +2768,33 @@ jobs:
                       baseUrl: document.getElementById('cfg-base-url').value.trim() || DEFAULT_CFG.baseUrl,
                       apiKey: document.getElementById('cfg-api-key').value.trim(),
                       model: document.getElementById('cfg-model').value.trim() || DEFAULT_CFG.model,
-                      asrModel: document.getElementById('cfg-asr-model').value.trim() || DEFAULT_CFG.asrModel,
-                      petSizeDp: parseInt(document.getElementById('cfg-size').value, 10) || 145,
+                      petSizeDp: sizeDp,
                       fontScale: parseInt(document.getElementById('cfg-font').value, 10) || 100,
                       colorScheme: document.getElementById('cfg-scheme').value,
                       cityFallback: document.getElementById('cfg-city').value.trim() || 'Shanghai',
-                      autoVideoComment: document.getElementById('cfg-auto-video').value === 'true',
-                      sysPrompt: document.getElementById('cfg-sys-prompt').value.trim() || DEFAULT_CFG.sysPrompt
+                      charName: document.getElementById('cfg-char-name').value.trim() || '大肥鱼',
+                      userName: document.getElementById('cfg-user-name').value.trim() || '主人',
+                      tavernPreset: {
+                        thinkingBudget: parseInt(document.getElementById('st-thinking').value, 10),
+                        temperature: parseFloat(document.getElementById('st-temp').value) || 0.85,
+                        topP: 0.95,
+                        maxTokens: parseInt(document.getElementById('st-max-tokens').value, 10) || 140,
+                        contextDepth: 6,
+                        entries: currentEntries
+                      }
                     };
-                    localStorage.setItem('whale_v5_cfg', JSON.stringify(cfg));
+                    localStorage.setItem('whale_v6_cfg', JSON.stringify(cfg));
                     if (window.MainBridge) {
-                      window.MainBridge.notifyConfigSaved();
+                      window.MainBridge.notifyConfigSaved(sizeDp);
                     }
                     if (showAlert) {
-                      alert('设置已保存并实时同步给全局悬浮大肥鱼！');
+                      alert('设置与酒馆预设已保存，并已实时同步给悬浮桌宠！');
                     }
                   }
 
                   function toggleSysAudio() {
                     if (window.MainBridge) {
-                      const autoVideo = document.getElementById('cfg-auto-video').value === 'true';
-                      window.MainBridge.toggleSystemAudioCapture(autoVideo);
+                      window.MainBridge.toggleSystemAudioCapture(false);
                     }
                   }
 
@@ -2354,17 +2806,17 @@ jobs:
                     const btn = document.getElementById('btn-toggle-overlay');
 
                     if (running) {
-                      badge.textContent = '● 悬浮窗运行中';
+                      badge.textContent = '● 悬浮球运行中';
                       badge.style.color = '#4ade80';
                       btn.textContent = '关闭全局悬浮桌宠';
                     } else if (!canDraw) {
                       badge.textContent = '○ 需授予悬浮窗权限';
                       badge.style.color = '#facc15';
-                      btn.textContent = '点击授予悬浮窗权限并启动大肥鱼';
+                      btn.textContent = '点击授予悬浮窗权限并启动';
                     } else {
                       badge.textContent = '○ 未启动';
                       badge.style.color = '#94a3b8';
-                      btn.textContent = '启动全局悬浮桌宠（跨应用显示）';
+                      btn.textContent = '启动全局悬浮桌宠';
                     }
 
                     try {
@@ -2373,22 +2825,24 @@ jobs:
                       document.getElementById('st-alarm').textContent = st.nextAlarm || '未设置';
                       document.getElementById('st-calls-sms').textContent = st.notificationAccess
                         ? `${st.missedCalls || 0} 个未接 / ${st.unreadSms || 0} 条短信`
-                        : '点上方按钮开启通知监听';
+                        : '请点击上方授权通知监听';
                       document.getElementById('st-social').textContent = st.notificationAccess
                         ? `${st.unreadSocial || 0} 条未读消息`
                         : '未授权通知监听';
-                      document.getElementById('st-song').textContent = st.currentSong || '暂无音乐播放';
+                      document.getElementById('st-song').textContent = st.currentSong
+                        ? `${st.currentSong} ${st.musicApp ? '(' + st.musicApp + ')' : ''}`
+                        : '暂无音乐播放';
                     } catch (_) {}
                   };
 
                   loadForm();
                   refreshDashboard();
-                  setInterval(refreshDashboard, 4000);
+                  setInterval(refreshDashboard, 3000);
                 </script>
               </body>
               </html>
               """).lstrip())
-          print("WhaleCompanion v5.1 (Gemini + OpenAI Dual Engine) generated successfully.")
+          print("WhaleCompanion v6 generated successfully.")
           PY
 
       - name: 6. 安装匹配的 Gradle 8.5 环境
@@ -2404,6 +2858,6 @@ jobs:
       - name: 8. 上传编译好的安卓 APK 安装包
         uses: actions/upload-artifact@v4
         with:
-          name: DeepSeek-Whale-Android-APK-v5
+          name: DeepSeek-Whale-Android-APK-v6
           path: /tmp/whale-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
