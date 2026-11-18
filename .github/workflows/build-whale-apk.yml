@@ -1,8 +1,19 @@
 # ==============================================================================
-# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓独立伴侣版 · 零代码云端一键自动打包配置（v4 终极修复版）
+# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓全局悬浮伴侣版 · v5 完整优化版自动打包配置
+# ==============================================================================
+# ✨ v5 全部特性汇总：
+# 1. 双接口引擎（第三方 OpenAI 格式 + 谷歌官方 Google AI Studio Gemini API）：
+#    - 内置「🔗 连接并拉取可用模型」按钮，点击后自动请求 /models 接口验证连通性并生成可用模型下拉列表。
+#    - Google AI Studio 模式下支持原生 Gemini 多模态音频直传（系统内录视频/音乐声音可直接由 Gemini 听音互动，无需额外配置语音转写接口）。
+# 2. 真·全局跨应用悬浮窗（TYPE_APPLICATION_OVERLAY）：可在桌面、微信、浏览器、视频 App 上方自由显示，窗口边界动态收缩，绝不遮挡其他区域点击。
+# 3. 自由吸附 + 待机只露半个头：拖到底部边缘向上探出半个头，拖到左右边缘歪头侧向探出半个头。
+# 4. 点击跳出站好 + 随机 10 句问候语 + 双按钮：点半个头立即抛物线跃起站好，随机弹出 10 句问候语之一，并展开「🎤 语音」与「💬 对话」双胶囊按钮。
+# 5. 桌宠大小与气泡字号自由无级调节（90dp~260dp 尺寸缩放 + 8 套原版配色切换 + 原仓库真实大肥鱼贴图提取挂载）。
+# 6. KLWP 同款手机状态感知 + 30 分钟主动搭话：读取电量/充电/温度、下个系统闹钟、通知栏未读短信/未接电话/微信未读、正在播放的歌名，以及免 Key 实时天气（Open-Meteo）。
+# 7. 智能省电与即时事件：锁屏息屏自动暂停定时请求；插拔充电器、低电量(<20%)、新未接来电、切歌时立即探头互动。
 # ==============================================================================
 
-name: Build DeepSeek Whale Android APK
+name: Build DeepSeek Whale Android APK v5
 
 on:
   push:
@@ -16,7 +27,7 @@ jobs:
       - name: 1. 检出当前仓库
         uses: actions/checkout@v4
 
-      - name: 2. 拉取 takboo/dsh-coopanion 官方仓库提取大肥鱼前端与角色资源
+      - name: 2. 拉取 takboo/dsh-coopanion 官方仓库并提取原版大肥鱼贴图与资源
         run: |
           git clone --depth 1 https://github.com/takboo/dsh-coopanion.git /tmp/dsh-coopanion
           mkdir -p /tmp/whale-android/app/src/main/assets/www
@@ -24,17 +35,46 @@ jobs:
           if [ -d "/tmp/dsh-coopanion/assets" ]; then
             cp -r /tmp/dsh-coopanion/assets /tmp/whale-android/app/src/main/assets/www/assets || true
           fi
+          if [ -f "/tmp/dsh-coopanion/desktop/icon.png" ]; then
+            cp /tmp/dsh-coopanion/desktop/icon.png /tmp/whale-android/app/src/main/assets/www/whale-official-icon.png
+          fi
           python3 - << 'PY'
           import os, json
+
           root = '/tmp/whale-android/app/src/main/assets/www'
           files = []
+          whale_images = []
+          figure_meta = {}
+
           for dirpath, _, filenames in os.walk(root):
               for f in filenames:
-                  rel = os.path.relpath(os.path.join(dirpath, f), root).replace('\\', '/')
+                  full = os.path.join(dirpath, f)
+                  rel = os.path.relpath(full, root).replace('\\', '/')
                   files.append(rel)
+                  low = rel.lower()
+                  if low.endswith(('.png', '.webp', '.svg', '.gif')) and ('whale' in low or 'icon' in low or 'figure' in low or 'assets' in low):
+                      whale_images.append(rel)
+                  if f == 'figure.json' and 'whale' in low:
+                      try:
+                          with open(full, 'r', encoding='utf-8') as jf:
+                              figure_meta = json.load(jf)
+                      except Exception:
+                          pass
+
+          preferred = []
+          for kw in ['whale-official-icon.png', 'preview', 'thumb', 'full', 'body', 'idle', 'stand', 'whale', 'icon']:
+              for img in whale_images:
+                  if kw in img.lower() and img not in preferred:
+                      preferred.append(img)
+
+          manifest_data = {
+              'files': sorted(files),
+              'whaleImages': preferred,
+              'figureMeta': figure_meta
+          }
           with open(os.path.join(root, 'whale-assets-manifest.json'), 'w', encoding='utf-8') as out:
-              json.dump({'files': sorted(files)}, out, ensure_ascii=False, indent=2)
-          print(f"Extracted {len(files)} files from takboo/dsh-coopanion")
+              json.dump(manifest_data, out, ensure_ascii=False, indent=2)
+          print(f"Extracted {len(files)} total files, {len(preferred)} whale textures.")
           PY
 
       - name: 3. 配置 JDK 17 编译环境
@@ -43,31 +83,29 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 4. 挂载预装 Android SDK 并自动签收全部协议
+      - name: 4. 挂载预装 Android SDK 并签收协议
         run: |
           export ANDROID_SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           SDKMANAGER=$(find "$ANDROID_SDK_ROOT/cmdline-tools" -name sdkmanager | sort -V | tail -n 1)
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
 
-      - name: 5. 生成独立安卓工程（含系统声音内录 AudioPlaybackCapture + 语音识别 + OpenAI 接口）
+      - name: 5. 生成 v5 独立安卓工程（双接口引擎 + 模型拉取 + 全局悬浮窗 + KLWP 状态感知）
         run: |
           python3 - << 'PY'
           import os, textwrap
 
           base = '/tmp/whale-android'
           java_dir = os.path.join(base, 'app/src/main/java/com/takboo/whalecompanion')
-          res_layout = os.path.join(base, 'app/src/main/res/layout')
           res_values = os.path.join(base, 'app/src/main/res/values')
           www_dir = os.path.join(base, 'app/src/main/assets/www')
           os.makedirs(java_dir, exist_ok=True)
-          os.makedirs(res_layout, exist_ok=True)
           os.makedirs(res_values, exist_ok=True)
           os.makedirs(www_dir, exist_ok=True)
 
-          # 1. settings.gradle & build.gradle
+          # 1. Gradle 配置文件
           with open(os.path.join(base, 'settings.gradle'), 'w', encoding='utf-8') as f:
-              f.write("rootProject.name = 'WhaleCompanion'\ninclude ':app'\n")
+              f.write("rootProject.name = 'WhaleCompanionV5'\ninclude ':app'\n")
 
           with open(os.path.join(base, 'build.gradle'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
@@ -103,8 +141,8 @@ jobs:
                       applicationId "com.takboo.whalecompanion"
                       minSdk 29
                       targetSdk 34
-                      versionCode 1
-                      versionName "1.0.0-standalone"
+                      versionCode 5
+                      versionName "5.1.0-gemini-openai-floating"
                   }
                   buildTypes {
                       debug {
@@ -126,26 +164,31 @@ jobs:
               }
               """).lstrip())
 
-          # 2. AndroidManifest.xml (含 RECORD_AUDIO 与 FOREGROUND_SERVICE_MEDIA_PROJECTION)
+          # 2. AndroidManifest.xml
           with open(os.path.join(base, 'app/src/main/AndroidManifest.xml'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <?xml version="1.0" encoding="utf-8"?>
               <manifest xmlns:android="http://schemas.android.com/apk/res/android">
                   <uses-permission android:name="android.permission.INTERNET" />
+                  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
                   <uses-permission android:name="android.permission.RECORD_AUDIO" />
+                  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+                  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
                   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+                  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
                   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
                   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
                   <application
                       android:allowBackup="true"
-                      android:label="大肥鱼伴侣"
+                      android:label="大肥鱼全局伴侣"
                       android:usesCleartextTraffic="true"
                       android:theme="@style/Theme.AppCompat.NoActionBar">
 
                       <activity
                           android:name=".MainActivity"
                           android:exported="true"
+                          android:launchMode="singleTask"
                           android:configChanges="orientation|screenSize|keyboardHidden">
                           <intent-filter>
                               <action android:name="android.intent.action.MAIN" />
@@ -154,15 +197,221 @@ jobs:
                       </activity>
 
                       <service
+                          android:name=".FloatingOverlayService"
+                          android:enabled="true"
+                          android:exported="false"
+                          android:foregroundServiceType="specialUse">
+                          <property
+                              android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                              android:value="desktop_pet_companion_overlay" />
+                      </service>
+
+                      <service
                           android:name=".SystemAudioCaptureService"
                           android:enabled="true"
                           android:exported="false"
                           android:foregroundServiceType="mediaProjection" />
+
+                      <service
+                          android:name=".WhaleNotificationListener"
+                          android:label="大肥鱼状态与歌名感知"
+                          android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+                          android:exported="true">
+                          <intent-filter>
+                              <action android:name="android.service.notification.NotificationListenerService" />
+                          </intent-filter>
+                      </service>
                   </application>
               </manifest>
               """).lstrip())
 
-          # 3. SystemAudioCaptureService.java (使用 Android 10+ AudioPlaybackCapture 捕获系统音乐/视频声音)
+          # 3. WhaleNotificationListener.java
+          with open(os.path.join(java_dir, 'WhaleNotificationListener.java'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""
+              package com.takboo.whalecompanion;
+
+              import android.app.Notification;
+              import android.os.Bundle;
+              import android.service.notification.NotificationListenerService;
+              import android.service.notification.StatusBarNotification;
+
+              public class WhaleNotificationListener extends NotificationListenerService {
+                  public static volatile boolean isConnected = false;
+                  public static volatile int missedCallCount = 0;
+                  public static volatile int unreadSmsCount = 0;
+                  public static volatile int unreadSocialCount = 0;
+                  public static volatile String currentSongTitle = "";
+                  public static volatile String currentSongArtist = "";
+                  private static String lastNotifiedSong = "";
+
+                  @Override
+                  public void onListenerConnected() {
+                      super.onListenerConnected();
+                      isConnected = true;
+                      refreshActiveNotifications();
+                  }
+
+                  @Override
+                  public void onListenerDisconnected() {
+                      super.onListenerDisconnected();
+                      isConnected = false;
+                  }
+
+                  @Override
+                  public void onNotificationPosted(StatusBarNotification sbn) {
+                      int prevMissed = missedCallCount;
+                      refreshActiveNotifications();
+                      if (missedCallCount > prevMissed && FloatingOverlayService.instance != null) {
+                          FloatingOverlayService.instance.notifyInstantEvent("missed_call", "主人，刚才好像有未接来电哦，要看看是谁打来的吗？");
+                      }
+                      if (!currentSongTitle.isEmpty() && !currentSongTitle.equals(lastNotifiedSong)) {
+                          lastNotifiedSong = currentSongTitle;
+                          if (FloatingOverlayService.instance != null) {
+                              String songInfo = currentSongTitle + (currentSongArtist.isEmpty() ? "" : " - " + currentSongArtist);
+                              FloatingOverlayService.instance.notifySongChanged(songInfo);
+                          }
+                      }
+                  }
+
+                  @Override
+                  public void onNotificationRemoved(StatusBarNotification sbn) {
+                      refreshActiveNotifications();
+                  }
+
+                  public void refreshActiveNotifications() {
+                      try {
+                          StatusBarNotification[] list = getActiveNotifications();
+                          if (list == null) return;
+                          int missed = 0;
+                          int sms = 0;
+                          int social = 0;
+                          String song = "";
+                          String artist = "";
+
+                          for (StatusBarNotification sbn : list) {
+                              String pkg = sbn.getPackageName() != null ? sbn.getPackageName().toLowerCase() : "";
+                              Notification n = sbn.getNotification();
+                              if (n == null) continue;
+                              String cat = n.category != null ? n.category : "";
+                              Bundle extras = n.extras;
+                              String title = extras != null && extras.getCharSequence(Notification.EXTRA_TITLE) != null
+                                      ? extras.getCharSequence(Notification.EXTRA_TITLE).toString() : "";
+                              String text = extras != null && extras.getCharSequence(Notification.EXTRA_TEXT) != null
+                                      ? extras.getCharSequence(Notification.EXTRA_TEXT).toString() : "";
+
+                              if (extras != null && (extras.containsKey(Notification.EXTRA_MEDIA_SESSION)
+                                      || "transport".equals(cat)
+                                      || pkg.contains("music") || pkg.contains("spotify") || pkg.contains("netease") || pkg.contains("kugou") || pkg.contains("qqmusic"))) {
+                                  if (!title.isEmpty()) {
+                                      song = title;
+                                      artist = text;
+                                  }
+                                  continue;
+                              }
+
+                              if (Notification.CATEGORY_MISSED_CALL.equals(cat) || (pkg.contains("dialer") || pkg.contains("telecom") || pkg.contains("phone")) && (title.contains("未接") || text.contains("未接") || title.toLowerCase().contains("missed"))) {
+                                  missed++;
+                              } else if (pkg.contains("mms") || pkg.contains("messaging") || pkg.contains("sms")) {
+                                  sms++;
+                              } else if (Notification.CATEGORY_MESSAGE.equals(cat) || pkg.contains("tencent.mm") || pkg.contains("mobileqq") || pkg.contains("telegram") || pkg.contains("whatsapp")) {
+                                  social++;
+                              }
+                          }
+                          missedCallCount = missed;
+                          unreadSmsCount = sms;
+                          unreadSocialCount = social;
+                          currentSongTitle = song;
+                          currentSongArtist = artist;
+                      } catch (Exception ignored) {}
+                  }
+              }
+              """).lstrip())
+
+          # 4. DeviceContextHelper.java
+          with open(os.path.join(java_dir, 'DeviceContextHelper.java'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""
+              package com.takboo.whalecompanion;
+
+              import android.Manifest;
+              import android.app.AlarmManager;
+              import android.content.Context;
+              import android.content.Intent;
+              import android.content.IntentFilter;
+              import android.content.pm.PackageManager;
+              import android.location.Location;
+              import android.location.LocationManager;
+              import android.os.BatteryManager;
+              import androidx.core.content.ContextCompat;
+              import org.json.JSONObject;
+              import java.text.SimpleDateFormat;
+              import java.util.Date;
+              import java.util.List;
+              import java.util.Locale;
+
+              public class DeviceContextHelper {
+                  public static String getDeviceStatusJson(Context ctx) {
+                      JSONObject obj = new JSONObject();
+                      try {
+                          SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd EEEE HH:mm", Locale.CHINA);
+                          obj.put("timeStr", sdf.format(new Date()));
+
+                          IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                          Intent batteryStatus = ctx.registerReceiver(null, ifilter);
+                          if (batteryStatus != null) {
+                              int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                              int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                              int pct = (level >= 0 && scale > 0) ? Math.round((level * 100f) / scale) : -1;
+                              int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                              boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+                              int tempTenths = batteryStatus.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0);
+                              obj.put("batteryPct", pct);
+                              obj.put("isCharging", isCharging);
+                              obj.put("batteryTempC", tempTenths / 10.0);
+                          }
+
+                          AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+                          if (am != null && am.getNextAlarmClock() != null) {
+                              long triggerTime = am.getNextAlarmClock().getTriggerTime();
+                              SimpleDateFormat alarmFmt = new SimpleDateFormat("EEE HH:mm", Locale.CHINA);
+                              obj.put("nextAlarm", alarmFmt.format(new Date(triggerTime)));
+                          } else {
+                              obj.put("nextAlarm", "未设置");
+                          }
+
+                          obj.put("notificationAccess", WhaleNotificationListener.isConnected);
+                          obj.put("missedCalls", WhaleNotificationListener.missedCallCount);
+                          obj.put("unreadSms", WhaleNotificationListener.unreadSmsCount);
+                          obj.put("unreadSocial", WhaleNotificationListener.unreadSocialCount);
+                          String song = WhaleNotificationListener.currentSongTitle;
+                          if (!WhaleNotificationListener.currentSongArtist.isEmpty()) {
+                              song += " - " + WhaleNotificationListener.currentSongArtist;
+                          }
+                          obj.put("currentSong", song);
+
+                          if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                              LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+                              if (lm != null) {
+                                  List<String> providers = lm.getProviders(true);
+                                  Location best = null;
+                                  for (String p : providers) {
+                                      Location l = lm.getLastKnownLocation(p);
+                                      if (l != null && (best == null || l.getAccuracy() < best.getAccuracy())) {
+                                          best = l;
+                                      }
+                                  }
+                                  if (best != null) {
+                                      obj.put("lat", best.getLatitude());
+                                      obj.put("lon", best.getLongitude());
+                                  }
+                              }
+                          }
+                      } catch (Exception ignored) {}
+                      return obj.toString();
+                  }
+              }
+              """).lstrip())
+
+          # 5. SystemAudioCaptureService.java
           with open(os.path.join(java_dir, 'SystemAudioCaptureService.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
@@ -196,16 +445,8 @@ jobs:
 
                   private MediaProjection mediaProjection;
                   private AudioRecord audioRecord;
-                  private volatile boolean isCapturing = false;
+                  public static volatile boolean isCapturing = false;
                   private Thread captureThread;
-
-                  public interface AudioCallback {
-                      void onBeatLevel(double rms, boolean isBeat);
-                      void onWavSegmentReady(String base64Wav);
-                      void onStatusChanged(boolean active, String message);
-                  }
-
-                  public static AudioCallback callback;
                   public static volatile boolean enableAutoSliceWav = false;
 
                   @Override
@@ -225,12 +466,12 @@ jobs:
                       }
                       if (ACTION_START.equals(action)) {
                           Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                                  .setContentTitle("大肥鱼正在陪你听歌/看视频")
-                                  .setContentText("实时感知系统声音律动与视频台词中...")
+                                  .setContentTitle("大肥鱼正在倾听系统声音")
+                                  .setContentText("音乐节奏律动与视频伴侣已激活")
                                   .setSmallIcon(android.R.drawable.ic_btn_speak_now)
                                   .setPriority(NotificationCompat.PRIORITY_LOW)
                                   .build();
-                          startForeground(1001, notification);
+                          startForeground(1002, notification);
 
                           Intent data = intent.getParcelableExtra(EXTRA_RESULT_DATA);
                           if (data != null) {
@@ -244,10 +485,7 @@ jobs:
                       try {
                           MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
                           mediaProjection = mpm.getMediaProjection(Activity.RESULT_OK, projectionData);
-                          if (mediaProjection == null) {
-                              if (callback != null) callback.onStatusChanged(false, "未获取到系统声音授权");
-                              return;
-                          }
+                          if (mediaProjection == null) return;
 
                           AudioPlaybackCaptureConfiguration config = new AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
                                   .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
@@ -275,10 +513,12 @@ jobs:
 
                           audioRecord.startRecording();
                           isCapturing = true;
-                          if (callback != null) callback.onStatusChanged(true, "已开启系统声音互动");
+                          if (FloatingOverlayService.instance != null) {
+                              FloatingOverlayService.instance.dispatchSystemAudioStatus(true, "已开启系统声音律动");
+                          }
 
                           captureThread = new Thread(() -> {
-                              short[] readBuffer = new short[1600]; // 100ms @ 16kHz
+                              short[] readBuffer = new short[1600];
                               ByteArrayOutputStream pcmAccumulator = new ByteArrayOutputStream();
                               double avgEnergy = 0.02;
                               int activeFrames = 0;
@@ -294,8 +534,8 @@ jobs:
                                       boolean isBeat = rms > 0.035 && rms > avgEnergy * 1.45;
                                       avgEnergy = avgEnergy * 0.85 + rms * 0.15;
 
-                                      if (callback != null) {
-                                          callback.onBeatLevel(Math.min(1.0, rms * 4.5), isBeat);
+                                      if (FloatingOverlayService.instance != null) {
+                                          FloatingOverlayService.instance.dispatchSystemAudioBeat(Math.min(1.0, rms * 4.5), isBeat);
                                       }
 
                                       if (enableAutoSliceWav) {
@@ -310,7 +550,9 @@ jobs:
                                               pcmAccumulator.reset();
                                               activeFrames = 0;
                                               String b64 = Base64.encodeToString(buildWavHeader(pcmBytes, sampleRate), Base64.NO_WRAP);
-                                              if (callback != null) callback.onWavSegmentReady(b64);
+                                              if (FloatingOverlayService.instance != null) {
+                                                  FloatingOverlayService.instance.dispatchSystemAudioWav(b64);
+                                              }
                                           }
                                       } else {
                                           pcmAccumulator.reset();
@@ -320,9 +562,7 @@ jobs:
                               }
                           }, "WhaleSystemAudioThread");
                           captureThread.start();
-                      } catch (Exception e) {
-                          if (callback != null) callback.onStatusChanged(false, "系统声音捕获异常: " + e.getMessage());
-                      }
+                      } catch (Exception ignored) {}
                   }
 
                   private byte[] buildWavHeader(byte[] pcmData, int sampleRate) {
@@ -359,7 +599,9 @@ jobs:
                               mediaProjection = null;
                           }
                       } catch (Exception ignored) {}
-                      if (callback != null) callback.onStatusChanged(false, "已停止系统声音捕获");
+                      if (FloatingOverlayService.instance != null) {
+                          FloatingOverlayService.instance.dispatchSystemAudioStatus(false, "已关闭系统声音律动");
+                      }
                   }
 
                   @Override
@@ -376,7 +618,7 @@ jobs:
                   private void createNotificationChannel() {
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                           NotificationChannel channel = new NotificationChannel(
-                                  CHANNEL_ID, "大肥鱼系统声音陪伴", NotificationManager.IMPORTANCE_LOW);
+                                  CHANNEL_ID, "大肥鱼系统声音内录", NotificationManager.IMPORTANCE_LOW);
                           NotificationManager nm = getSystemService(NotificationManager.class);
                           if (nm != null) nm.createNotificationChannel(channel);
                       }
@@ -384,178 +626,339 @@ jobs:
               }
               """).lstrip())
 
-          # 4. MainActivity.java
-          with open(os.path.join(java_dir, 'MainActivity.java'), 'w', encoding='utf-8') as f:
+          # 6. FloatingOverlayService.java
+          with open(os.path.join(java_dir, 'FloatingOverlayService.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
 
-              import android.Manifest;
-              import android.app.Activity;
+              import android.app.Notification;
+              import android.app.NotificationChannel;
+              import android.app.NotificationManager;
+              import android.app.PendingIntent;
+              import android.app.Service;
+              import android.content.BroadcastReceiver;
               import android.content.Context;
               import android.content.Intent;
-              import android.content.pm.PackageManager;
-              import android.media.projection.MediaProjectionManager;
-              import android.net.Uri;
+              import android.content.IntentFilter;
+              import android.graphics.Color;
+              import android.graphics.PixelFormat;
               import android.os.Build;
               import android.os.Bundle;
+              import android.os.IBinder;
+              import android.provider.Settings;
               import android.speech.RecognitionListener;
               import android.speech.RecognizerIntent;
               import android.speech.SpeechRecognizer;
+              import android.util.DisplayMetrics;
+              import android.view.Gravity;
+              import android.view.WindowManager;
+              import android.view.inputmethod.InputMethodManager;
               import android.webkit.JavascriptInterface;
-              import android.webkit.PermissionRequest;
-              import android.webkit.WebChromeClient;
               import android.webkit.WebResourceRequest;
               import android.webkit.WebResourceResponse;
               import android.webkit.WebSettings;
               import android.webkit.WebView;
               import android.webkit.WebViewClient;
-              import androidx.appcompat.app.AppCompatActivity;
-              import androidx.core.app.ActivityCompat;
-              import androidx.core.content.ContextCompat;
+              import androidx.core.app.NotificationCompat;
               import androidx.webkit.WebViewAssetLoader;
               import java.util.ArrayList;
               import java.util.Locale;
 
-              public class MainActivity extends AppCompatActivity {
-                  private static final int REQ_MEDIA_PROJECTION = 2001;
-                  private static final int REQ_RECORD_AUDIO = 2002;
-                  private WebView webView;
+              public class FloatingOverlayService extends Service {
+                  public static FloatingOverlayService instance;
+                  private static final String CHANNEL_ID = "WhaleFloatingOverlayChannel";
+
+                  private WindowManager windowManager;
+                  private WindowManager.LayoutParams layoutParams;
+                  private WebView overlayWebView;
                   private SpeechRecognizer speechRecognizer;
 
-                  @Override
-                  protected void onCreate(Bundle savedInstanceState) {
-                      super.onCreate(savedInstanceState);
-                      webView = new WebView(this);
-                      setContentView(webView);
+                  private float density = 3.0f;
+                  private int screenWidth = 1080;
+                  private int screenHeight = 2400;
+                  private int petBaseDp = 150;
+                  private String currentMode = "peek";
+                  private String dockEdge = "bottom";
 
-                      WebSettings settings = webView.getSettings();
-                      settings.setJavaScriptEnabled(true);
-                      settings.setDomStorageEnabled(true);
-                      settings.setMediaPlaybackRequiresUserGesture(false);
-                      settings.setAllowFileAccess(true);
-                      settings.setAllowContentAccess(true);
+                  private final BroadcastReceiver systemEventReceiver = new BroadcastReceiver() {
+                      @Override
+                      public void onReceive(Context context, Intent intent) {
+                          if (intent == null || intent.getAction() == null) return;
+                          String act = intent.getAction();
+                          if (Intent.ACTION_SCREEN_OFF.equals(act)) {
+                              evalJs("window.onScreenStateChanged && window.onScreenStateChanged(false);");
+                          } else if (Intent.ACTION_SCREEN_ON.equals(act)) {
+                              evalJs("window.onScreenStateChanged && window.onScreenStateChanged(true);");
+                          } else if (Intent.ACTION_POWER_CONNECTED.equals(act)) {
+                              notifyInstantEvent("power_connected", "哇！充上电啦⚡ 能量源源不断涌进来咯～");
+                          } else if (Intent.ACTION_POWER_DISCONNECTED.equals(act)) {
+                              notifyInstantEvent("power_disconnected", "拔掉充电线啦，今天也要元气满满地出发哦！");
+                          } else if (Intent.ACTION_BATTERY_LOW.equals(act)) {
+                              notifyInstantEvent("battery_low", "主人主人，手机电量快见底啦🪫 快找个地方喂饱它吧！");
+                          }
+                      }
+                  };
+
+                  @Override
+                  public void onCreate() {
+                      super.onCreate();
+                      instance = this;
+                      createNotificationChannel();
+
+                      Intent openAppIntent = new Intent(this, MainActivity.class);
+                      PendingIntent pi = PendingIntent.getActivity(this, 0, openAppIntent,
+                              PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+                      Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                              .setContentTitle("大肥鱼正在桌面陪伴你")
+                              .setContentText("点击打开设置面板 · 待机贴边露头中")
+                              .setSmallIcon(android.R.drawable.sym_def_app_icon)
+                              .setContentIntent(pi)
+                              .setPriority(NotificationCompat.PRIORITY_MIN)
+                              .build();
+                      startForeground(1001, notification);
+
+                      IntentFilter filter = new IntentFilter();
+                      filter.addAction(Intent.ACTION_SCREEN_OFF);
+                      filter.addAction(Intent.ACTION_SCREEN_ON);
+                      filter.addAction(Intent.ACTION_POWER_CONNECTED);
+                      filter.addAction(Intent.ACTION_POWER_DISCONNECTED);
+                      filter.addAction(Intent.ACTION_BATTERY_LOW);
+                      registerReceiver(systemEventReceiver, filter);
+
+                      initOverlayWindow();
+                  }
+
+                  private void initOverlayWindow() {
+                      if (!Settings.canDrawOverlays(this)) return;
+                      windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+                      DisplayMetrics dm = getResources().getDisplayMetrics();
+                      density = dm.density;
+                      screenWidth = dm.widthPixels;
+                      screenHeight = dm.heightPixels;
+
+                      int wPx = dpToPx(110);
+                      int hPx = dpToPx(95);
+
+                      layoutParams = new WindowManager.LayoutParams(
+                              wPx,
+                              hPx,
+                              WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                              WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                                      | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                                      | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                              PixelFormat.TRANSLUCENT
+                      );
+                      layoutParams.gravity = Gravity.TOP | Gravity.START;
+                      layoutParams.x = (screenWidth - wPx) / 2;
+                      layoutParams.y = screenHeight - hPx;
+
+                      overlayWebView = new WebView(this);
+                      overlayWebView.setBackgroundColor(Color.TRANSPARENT);
+                      overlayWebView.setVerticalScrollBarEnabled(false);
+                      overlayWebView.setHorizontalScrollBarEnabled(false);
+
+                      WebSettings s = overlayWebView.getSettings();
+                      s.setJavaScriptEnabled(true);
+                      s.setDomStorageEnabled(true);
+                      s.setMediaPlaybackRequiresUserGesture(false);
 
                       final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                               .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                               .build();
 
-                      webView.setWebViewClient(new WebViewClient() {
+                      overlayWebView.setWebViewClient(new WebViewClient() {
                           @Override
                           public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                               return assetLoader.shouldInterceptRequest(request.getUrl());
                           }
                       });
 
-                      webView.setWebChromeClient(new WebChromeClient() {
-                          @Override
-                          public void onPermissionRequest(final PermissionRequest request) {
-                              runOnUiThread(() -> request.grant(request.getResources()));
-                          }
-                      });
-
-                      webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
-
-                      SystemAudioCaptureService.callback = new SystemAudioCaptureService.AudioCallback() {
-                          @Override
-                          public void onBeatLevel(double rms, boolean isBeat) {
-                              runOnUiThread(() -> webView.evaluateJavascript(
-                                      String.format(Locale.US, "window.onSystemAudioBeat && window.onSystemAudioBeat(%.4f, %b);", rms, isBeat), null));
-                          }
-
-                          @Override
-                          public void onWavSegmentReady(String base64Wav) {
-                              runOnUiThread(() -> webView.evaluateJavascript(
-                                      "window.onSystemAudioWav && window.onSystemAudioWav('" + base64Wav + "');", null));
-                          }
-
-                          @Override
-                          public void onStatusChanged(boolean active, String msg) {
-                              String safeMsg = msg.replace("'", "\\'");
-                              runOnUiThread(() -> webView.evaluateJavascript(
-                                      "window.onSystemAudioStatus && window.onSystemAudioStatus(" + active + ", '" + safeMsg + "');", null));
-                          }
-                      };
-
-                      ensureAudioPermission();
-                      webView.loadUrl("https://appassets.androidplatform.net/assets/www/companion-standalone.html");
+                      overlayWebView.addJavascriptInterface(new OverlayJsBridge(), "OverlayBridge");
+                      windowManager.addView(overlayWebView, layoutParams);
+                      overlayWebView.loadUrl("https://appassets.androidplatform.net/assets/www/overlay-pet.html");
                   }
 
-                  private void ensureAudioPermission() {
-                      if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                              != PackageManager.PERMISSION_GRANTED) {
-                          ActivityCompat.requestPermissions(this,
-                                  new String[]{Manifest.permission.RECORD_AUDIO}, REQ_RECORD_AUDIO);
-                      }
+                  private int dpToPx(int dp) {
+                      return Math.round(dp * density);
                   }
 
-                  @Override
-                  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-                      super.onActivityResult(requestCode, resultCode, data);
-                      if (requestCode == REQ_MEDIA_PROJECTION) {
-                          if (resultCode == Activity.RESULT_OK && data != null) {
-                              Intent serviceIntent = new Intent(this, SystemAudioCaptureService.class);
-                              serviceIntent.setAction(SystemAudioCaptureService.ACTION_START);
-                              serviceIntent.putExtra(SystemAudioCaptureService.EXTRA_RESULT_DATA, data);
-                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                  startForegroundService(serviceIntent);
-                              } else {
-                                  startService(serviceIntent);
-                              }
+                  public void evalJs(final String script) {
+                      if (overlayWebView == null) return;
+                      overlayWebView.post(() -> overlayWebView.evaluateJavascript(script, null));
+                  }
+
+                  public void notifyInstantEvent(String type, String defaultLine) {
+                      String safe = defaultLine.replace("'", "\\'");
+                      evalJs("window.onNativeInstantEvent && window.onNativeInstantEvent('" + type + "', '" + safe + "');");
+                  }
+
+                  public void notifySongChanged(String songInfo) {
+                      String safe = songInfo.replace("'", "\\'");
+                      evalJs("window.onNativeSongChanged && window.onNativeSongChanged('" + safe + "');");
+                  }
+
+                  public void dispatchSystemAudioBeat(double rms, boolean isBeat) {
+                      evalJs(String.format(Locale.US, "window.onSystemAudioBeat && window.onSystemAudioBeat(%.4f, %b);", rms, isBeat));
+                  }
+
+                  public void dispatchSystemAudioWav(String b64Wav) {
+                      evalJs("window.onSystemAudioWav && window.onSystemAudioWav('" + b64Wav + "');");
+                  }
+
+                  public void dispatchSystemAudioStatus(boolean active, String msg) {
+                      String safe = msg.replace("'", "\\'");
+                      evalJs("window.onSystemAudioStatus && window.onSystemAudioStatus(" + active + ", '" + safe + "');");
+                  }
+
+                  public void reloadConfigFromMain() {
+                      evalJs("window.reloadWhaleConfig && window.reloadWhaleConfig();");
+                  }
+
+                  private void updateWindowGeometry(String mode, int petSizeDp, boolean focusable) {
+                      if (windowManager == null || overlayWebView == null) return;
+                      DisplayMetrics dm = getResources().getDisplayMetrics();
+                      screenWidth = dm.widthPixels;
+                      screenHeight = dm.heightPixels;
+
+                      int oldCenterX = layoutParams.x + layoutParams.width / 2;
+                      int oldBottomY = layoutParams.y + layoutParams.height;
+
+                      currentMode = mode;
+                      petBaseDp = Math.max(85, Math.min(270, petSizeDp));
+
+                      int targetW;
+                      int targetH;
+                      if ("peek".equals(mode)) {
+                          if ("left".equals(dockEdge) || "right".equals(dockEdge)) {
+                              targetW = dpToPx(Math.round(petBaseDp * 0.52f));
+                              targetH = dpToPx(Math.round(petBaseDp * 0.85f));
                           } else {
-                              webView.evaluateJavascript("window.onSystemAudioStatus && window.onSystemAudioStatus(false, '已取消系统声音授权');", null);
+                              targetW = dpToPx(Math.round(petBaseDp * 0.85f));
+                              targetH = dpToPx(Math.round(petBaseDp * 0.52f));
+                          }
+                      } else if ("chat".equals(mode)) {
+                          targetW = Math.min(screenWidth - dpToPx(16), dpToPx(Math.max(300, petBaseDp + 160)));
+                          targetH = dpToPx(petBaseDp + 210);
+                      } else {
+                          targetW = Math.min(screenWidth - dpToPx(20), dpToPx(Math.max(260, petBaseDp + 120)));
+                          targetH = dpToPx(petBaseDp + 160);
+                      }
+
+                      layoutParams.width = targetW;
+                      layoutParams.height = targetH;
+
+                      if (focusable) {
+                          layoutParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                      } else {
+                          layoutParams.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                      }
+
+                      if ("left".equals(dockEdge)) {
+                          layoutParams.x = 0;
+                          layoutParams.y = Math.max(dpToPx(40), Math.min(screenHeight - targetH - dpToPx(40), oldBottomY - targetH));
+                      } else if ("right".equals(dockEdge)) {
+                          layoutParams.x = screenWidth - targetW;
+                          layoutParams.y = Math.max(dpToPx(40), Math.min(screenHeight - targetH - dpToPx(40), oldBottomY - targetH));
+                      } else {
+                          layoutParams.x = Math.max(0, Math.min(screenWidth - targetW, oldCenterX - targetW / 2));
+                          layoutParams.y = screenHeight - targetH;
+                      }
+
+                      windowManager.updateViewLayout(overlayWebView, layoutParams);
+                      if (focusable) {
+                          overlayWebView.requestFocus();
+                          InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                          if (imm != null) {
+                              imm.showSoftInput(overlayWebView, InputMethodManager.SHOW_IMPLICIT);
                           }
                       }
                   }
 
-                  public class AndroidBridge {
+                  public class OverlayJsBridge {
                       @JavascriptInterface
-                      public void startSystemAudioCapture(boolean autoSliceWav) {
-                          SystemAudioCaptureService.enableAutoSliceWav = autoSliceWav;
-                          ensureAudioPermission();
-                          MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-                          if (mpm != null) {
-                              startActivityForResult(mpm.createScreenCaptureIntent(), REQ_MEDIA_PROJECTION);
+                      public void setOverlayMode(final String mode, final int petSizeDp, final boolean needKeyboard) {
+                          if (overlayWebView == null) return;
+                          overlayWebView.post(() -> updateWindowGeometry(mode, petSizeDp, needKeyboard));
+                      }
+
+                      @JavascriptInterface
+                      public void moveOverlayBy(final int dxCss, final int dyCss) {
+                          if (overlayWebView == null || windowManager == null) return;
+                          overlayWebView.post(() -> {
+                              layoutParams.x += Math.round(dxCss * density);
+                              layoutParams.y += Math.round(dyCss * density);
+                              windowManager.updateViewLayout(overlayWebView, layoutParams);
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public String snapToNearestEdge() {
+                          if (overlayWebView == null || windowManager == null) return dockEdge;
+                          DisplayMetrics dm = getResources().getDisplayMetrics();
+                          screenWidth = dm.widthPixels;
+                          screenHeight = dm.heightPixels;
+
+                          int centerX = layoutParams.x + layoutParams.width / 2;
+                          int centerY = layoutParams.y + layoutParams.height / 2;
+
+                          int distLeft = centerX;
+                          int distRight = screenWidth - centerX;
+                          int distBottom = screenHeight - centerY;
+
+                          if (distBottom <= distLeft && distBottom <= distRight || centerY > screenHeight * 0.72f) {
+                              dockEdge = "bottom";
+                          } else if (distLeft < distRight) {
+                              dockEdge = "left";
+                          } else {
+                              dockEdge = "right";
                           }
+
+                          overlayWebView.post(() -> {
+                              updateWindowGeometry(currentMode, petBaseDp, false);
+                              evalJs("window.onDockEdgeChanged && window.onDockEdgeChanged('" + dockEdge + "');");
+                          });
+                          return dockEdge;
                       }
 
                       @JavascriptInterface
-                      public void setAutoSliceWav(boolean enabled) {
-                          SystemAudioCaptureService.enableAutoSliceWav = enabled;
+                      public String getDeviceContextJson() {
+                          return DeviceContextHelper.getDeviceStatusJson(FloatingOverlayService.this);
                       }
 
                       @JavascriptInterface
-                      public void stopSystemAudioCapture() {
-                          Intent serviceIntent = new Intent(MainActivity.this, SystemAudioCaptureService.class);
-                          serviceIntent.setAction(SystemAudioCaptureService.ACTION_STOP);
-                          startService(serviceIntent);
+                      public void openControlPanelApp() {
+                          Intent i = new Intent(FloatingOverlayService.this, MainActivity.class);
+                          i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                          startActivity(i);
                       }
 
                       @JavascriptInterface
-                      public void startNativeSpeechRecognition() {
-                          runOnUiThread(() -> {
-                              ensureAudioPermission();
+                      public void startVoiceRecognition() {
+                          if (overlayWebView == null) return;
+                          overlayWebView.post(() -> {
                               if (speechRecognizer != null) {
                                   speechRecognizer.destroy();
                               }
-                              speechRecognizer = SpeechRecognizer.createSpeechRecognizer(MainActivity.this);
+                              speechRecognizer = SpeechRecognizer.createSpeechRecognizer(FloatingOverlayService.this);
                               speechRecognizer.setRecognitionListener(new RecognitionListener() {
                                   @Override public void onReadyForSpeech(Bundle params) {
-                                      webView.evaluateJavascript("window.onNativeSpeechState && window.onNativeSpeechState('listening');", null);
+                                      evalJs("window.onVoiceState && window.onVoiceState('listening');");
                                   }
                                   @Override public void onBeginningOfSpeech() {}
                                   @Override public void onRmsChanged(float rmsdB) {}
                                   @Override public void onBufferReceived(byte[] buffer) {}
                                   @Override public void onEndOfSpeech() {
-                                      webView.evaluateJavascript("window.onNativeSpeechState && window.onNativeSpeechState('processing');", null);
+                                      evalJs("window.onVoiceState && window.onVoiceState('processing');");
                                   }
                                   @Override public void onError(int error) {
-                                      webView.evaluateJavascript("window.onNativeSpeechError && window.onNativeSpeechError(" + error + ");", null);
+                                      evalJs("window.onVoiceError && window.onVoiceError(" + error + ");");
                                   }
                                   @Override public void onResults(Bundle results) {
                                       ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                                       if (matches != null && !matches.isEmpty()) {
                                           String text = matches.get(0).replace("'", "\\'");
-                                          webView.evaluateJavascript("window.onNativeSpeechResult && window.onNativeSpeechResult('" + text + "');", null);
+                                          evalJs("window.onVoiceResult && window.onVoiceResult('" + text + "');");
                                       }
                                   }
                                   @Override public void onPartialResults(Bundle partialResults) {}
@@ -568,611 +971,1424 @@ jobs:
                           });
                       }
                   }
+
+                  @Override
+                  public void onDestroy() {
+                      instance = null;
+                      try {
+                          unregisterReceiver(systemEventReceiver);
+                      } catch (Exception ignored) {}
+                      if (windowManager != null && overlayWebView != null) {
+                          windowManager.removeView(overlayWebView);
+                          overlayWebView = null;
+                      }
+                      if (speechRecognizer != null) {
+                          speechRecognizer.destroy();
+                      }
+                      super.onDestroy();
+                  }
+
+                  @Override
+                  public IBinder onBind(Intent intent) {
+                      return null;
+                  }
+
+                  private void createNotificationChannel() {
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          NotificationChannel channel = new NotificationChannel(
+                                  CHANNEL_ID, "大肥鱼全局桌面悬浮窗", NotificationManager.IMPORTANCE_MIN);
+                          NotificationManager nm = getSystemService(NotificationManager.class);
+                          if (nm != null) nm.createNotificationChannel(channel);
+                      }
+                  }
               }
               """).lstrip())
 
-          # 5. 生成独立版前端页面 companion-standalone.html
-          with open(os.path.join(www_dir, 'companion-standalone.html'), 'w', encoding='utf-8') as f:
+          # 7. MainActivity.java
+          with open(os.path.join(java_dir, 'MainActivity.java'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""
+              package com.takboo.whalecompanion;
+
+              import android.Manifest;
+              import android.app.Activity;
+              import android.content.Context;
+              import android.content.Intent;
+              import android.media.projection.MediaProjectionManager;
+              import android.net.Uri;
+              import android.os.Build;
+              import android.os.Bundle;
+              import android.provider.Settings;
+              import android.webkit.JavascriptInterface;
+              import android.webkit.WebResourceRequest;
+              import android.webkit.WebResourceResponse;
+              import android.webkit.WebSettings;
+              import android.webkit.WebView;
+              import android.webkit.WebViewClient;
+              import androidx.appcompat.app.AppCompatActivity;
+              import androidx.core.app.ActivityCompat;
+              import androidx.webkit.WebViewAssetLoader;
+
+              public class MainActivity extends AppCompatActivity {
+                  private static final int REQ_MEDIA_PROJECTION = 2001;
+                  private static final int REQ_PERMS = 2002;
+                  private static final int REQ_OVERLAY = 2003;
+                  private WebView controlWebView;
+
+                  @Override
+                  protected void onCreate(Bundle savedInstanceState) {
+                      super.onCreate(savedInstanceState);
+                      controlWebView = new WebView(this);
+                      setContentView(controlWebView);
+
+                      WebSettings s = controlWebView.getSettings();
+                      s.setJavaScriptEnabled(true);
+                      s.setDomStorageEnabled(true);
+
+                      final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                              .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                              .build();
+
+                      controlWebView.setWebViewClient(new WebViewClient() {
+                          @Override
+                          public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                              return assetLoader.shouldInterceptRequest(request.getUrl());
+                          }
+                      });
+
+                      controlWebView.addJavascriptInterface(new MainControlBridge(), "MainBridge");
+                      requestBasePermissions();
+                      controlWebView.loadUrl("https://appassets.androidplatform.net/assets/www/control-panel.html");
+                  }
+
+                  @Override
+                  protected void onResume() {
+                      super.onResume();
+                      if (controlWebView != null) {
+                          controlWebView.evaluateJavascript("window.refreshDashboard && window.refreshDashboard();", null);
+                      }
+                  }
+
+                  private void requestBasePermissions() {
+                      String[] perms = new String[]{
+                              Manifest.permission.RECORD_AUDIO,
+                              Manifest.permission.ACCESS_COARSE_LOCATION,
+                              Manifest.permission.ACCESS_FINE_LOCATION
+                      };
+                      ActivityCompat.requestPermissions(this, perms, REQ_PERMS);
+                  }
+
+                  @Override
+                  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                      super.onActivityResult(requestCode, resultCode, data);
+                      if (requestCode == REQ_OVERLAY) {
+                          if (Settings.canDrawOverlays(this)) {
+                              startFloatingService();
+                          }
+                          if (controlWebView != null) {
+                              controlWebView.evaluateJavascript("window.refreshDashboard && window.refreshDashboard();", null);
+                          }
+                      } else if (requestCode == REQ_MEDIA_PROJECTION) {
+                          if (resultCode == Activity.RESULT_OK && data != null) {
+                              Intent serviceIntent = new Intent(this, SystemAudioCaptureService.class);
+                              serviceIntent.setAction(SystemAudioCaptureService.ACTION_START);
+                              serviceIntent.putExtra(SystemAudioCaptureService.EXTRA_RESULT_DATA, data);
+                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                  startForegroundService(serviceIntent);
+                              } else {
+                                  startService(serviceIntent);
+                              }
+                          }
+                      }
+                  }
+
+                  private void startFloatingService() {
+                      Intent i = new Intent(this, FloatingOverlayService.class);
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          startForegroundService(i);
+                      } else {
+                          startService(i);
+                      }
+                  }
+
+                  public class MainControlBridge {
+                      @JavascriptInterface
+                      public boolean canDrawOverlays() {
+                          return Settings.canDrawOverlays(MainActivity.this);
+                      }
+
+                      @JavascriptInterface
+                      public boolean isOverlayRunning() {
+                          return FloatingOverlayService.instance != null;
+                      }
+
+                      @JavascriptInterface
+                      public void toggleFloatingOverlay() {
+                          runOnUiThread(() -> {
+                              if (!Settings.canDrawOverlays(MainActivity.this)) {
+                                  Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                          Uri.parse("package:" + getPackageName()));
+                                  startActivityForResult(intent, REQ_OVERLAY);
+                                  return;
+                              }
+                              if (FloatingOverlayService.instance != null) {
+                                  stopService(new Intent(MainActivity.this, FloatingOverlayService.class));
+                              } else {
+                                  startFloatingService();
+                              }
+                              controlWebView.postDelayed(() ->
+                                      controlWebView.evaluateJavascript("window.refreshDashboard && window.refreshDashboard();", null), 400);
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public void openNotificationAccessSettings() {
+                          Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+                          startActivity(intent);
+                      }
+
+                      @JavascriptInterface
+                      public void toggleSystemAudioCapture(boolean autoSliceWav) {
+                          runOnUiThread(() -> {
+                              if (SystemAudioCaptureService.isCapturing) {
+                                  Intent stopIntent = new Intent(MainActivity.this, SystemAudioCaptureService.class);
+                                  stopIntent.setAction(SystemAudioCaptureService.ACTION_STOP);
+                                  startService(stopIntent);
+                              } else {
+                                  SystemAudioCaptureService.enableAutoSliceWav = autoSliceWav;
+                                  MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                                  if (mpm != null) {
+                                      startActivityForResult(mpm.createScreenCaptureIntent(), REQ_MEDIA_PROJECTION);
+                                  }
+                              }
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public String getDeviceStatusJson() {
+                          return DeviceContextHelper.getDeviceStatusJson(MainActivity.this);
+                      }
+
+                      @JavascriptInterface
+                      public void notifyConfigSaved() {
+                          if (FloatingOverlayService.instance != null) {
+                              FloatingOverlayService.instance.reloadConfigFromMain();
+                          }
+                      }
+
+                      @JavascriptInterface
+                      public void triggerTestContextGreeting() {
+                          if (FloatingOverlayService.instance != null) {
+                              FloatingOverlayService.instance.evalJs("window.triggerHalfHourContextChat && window.triggerHalfHourContextChat(true);");
+                          }
+                      }
+                  }
+              }
+              """).lstrip())
+
+          # 8. 生成全局悬浮窗页面 overlay-pet.html（同时支持 Google AI Studio Gemini 官方 API 与第三方 OpenAI 格式 API）
+          with open(os.path.join(www_dir, 'overlay-pet.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
               <html lang="zh-CN">
               <head>
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                <title>DeepSeek 大肥鱼 · 安卓独立伴侣</title>
+                <title>Whale Overlay</title>
+                <style>
+                  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+                  html, body {
+                    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+                    background: transparent !important;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                  }
+                  #overlay-root {
+                    position: relative; width: 100vw; height: 100vh;
+                    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+                  }
+                  #pet-bubble {
+                    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+                    max-width: 92vw; min-width: 170px;
+                    background: rgba(255, 255, 255, 0.96); color: #0f172a;
+                    padding: 10px 14px; border-radius: 16px;
+                    font-size: 13px; line-height: 1.45; font-weight: 500;
+                    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.28);
+                    border: 1.5px solid rgba(56, 189, 248, 0.55);
+                    z-index: 50; display: none; word-break: break-word;
+                  }
+                  #pet-bubble::after {
+                    content: ''; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
+                    border-width: 7px 7px 0; border-style: solid; border-color: rgba(255,255,255,0.96) transparent;
+                  }
+                  #whale-actor {
+                    position: relative; z-index: 20; cursor: pointer; touch-action: none;
+                    transition: transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+                    display: flex; align-items: center; justify-content: center;
+                  }
+                  body.mode-peek.edge-bottom #whale-actor {
+                    transform: translateY(46%);
+                  }
+                  body.mode-peek.edge-left #whale-actor {
+                    transform: translateX(-44%) rotate(32deg);
+                  }
+                  body.mode-peek.edge-right #whale-actor {
+                    transform: translateX(44%) rotate(-32deg);
+                  }
+                  body.mode-active #whale-actor,
+                  body.mode-chat #whale-actor {
+                    transform: translate(0, -34px) scale(1);
+                  }
+                  #action-buttons {
+                    position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+                    display: none; gap: 8px; z-index: 60; white-space: nowrap;
+                  }
+                  body.mode-active #action-buttons {
+                    display: flex;
+                  }
+                  .act-btn {
+                    background: rgba(15, 23, 42, 0.9); color: #f8fafc;
+                    border: 1.2px solid rgba(56, 189, 248, 0.6);
+                    border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 600;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: inline-flex; align-items: center; gap: 4px;
+                  }
+                  .act-btn.close-btn {
+                    padding: 6px 9px; border-color: rgba(148, 163, 184, 0.4); color: #cbd5e1;
+                  }
+                  #chat-bar {
+                    position: absolute; bottom: 4px; left: 4px; right: 4px;
+                    display: none; gap: 6px; z-index: 70;
+                    background: rgba(15, 23, 42, 0.94); padding: 6px 8px;
+                    border-radius: 999px; border: 1.5px solid rgba(56, 189, 248, 0.65);
+                    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+                  }
+                  body.mode-chat #chat-bar {
+                    display: flex; align-items: center;
+                  }
+                  #chat-input {
+                    flex: 1; background: transparent; border: none; color: #ffffff;
+                    font-size: 13px; outline: none; padding: 4px 6px;
+                    user-select: text; -webkit-user-select: text;
+                  }
+                  .send-btn {
+                    background: #0284c7; color: #fff; border: none; border-radius: 999px;
+                    padding: 5px 12px; font-size: 12px; font-weight: 600;
+                  }
+                </style>
+              </head>
+              <body class="mode-peek edge-bottom">
+                <div id="overlay-root">
+                  <div id="pet-bubble" onclick="collapseToPeek()"></div>
+
+                  <div id="whale-actor">
+                    <canvas id="whale-canvas" width="220" height="220"></canvas>
+                  </div>
+
+                  <div id="action-buttons">
+                    <button class="act-btn" onclick="startVoiceChat()">🎤 语音</button>
+                    <button class="act-btn" onclick="openChatInput()">💬 对话</button>
+                    <button class="act-btn close-btn" onclick="collapseToPeek()" title="缩回半个头">▾</button>
+                  </div>
+
+                  <div id="chat-bar">
+                    <button class="act-btn close-btn" onclick="switchToActiveMode()">‹</button>
+                    <input id="chat-input" placeholder="输入想对大肥鱼说的话..." onkeydown="if(event.key==='Enter')submitChatText()" />
+                    <button class="send-btn" onclick="submitChatText()">发送</button>
+                  </div>
+                </div>
+
+                <script>
+                  const WAKE_GREETINGS = [
+                    "噗通！被你抓到我在偷偷探头看你啦，今天过得怎么样？",
+                    "呼噜噜～终于想起我啦！要跟我语音说说话，还是打字聊？",
+                    "我刚刚在水面下吐泡泡呢，一感觉到你点我就立马跳出来啦！",
+                    "立正站好！你的桌面小鲸鱼已就位，随时听候差遣～",
+                    "嘿嘿，偷偷趴在屏幕边观察你好久了，是不是有点无聊呀？",
+                    "摇摇尾巴打个招呼✨ 有什么好玩的事快跟我分享一下！",
+                    "哇，这一下戳得我精神百倍！点下面按钮跟我聊五块钱的？",
+                    "嘀嘀——大肥鱼陪伴能量满格！点左边麦克风可以直接跟我说话哦～",
+                    "刚在屏幕边打了个小盹，你一叫我就醒啦，现在在忙什么呢？",
+                    "扑腾！水面巡逻完毕，报告主人，今天也是超级想你的一天！"
+                  ];
+
+                  const COLOR_SCHEMES = {
+                    'deepseek_blue': 'none',
+                    'claude_amber': 'hue-rotate(155deg) saturate(1.15)',
+                    'sakura_pink': 'hue-rotate(110deg) saturate(1.25)',
+                    'mint_emerald': 'hue-rotate(310deg) saturate(1.1)',
+                    'violet_dream': 'hue-rotate(55deg) saturate(1.2)',
+                    'sunset_coral': 'hue-rotate(135deg) saturate(1.3)',
+                    'cyber_cyan': 'hue-rotate(340deg) saturate(1.35)',
+                    'moonlight_silver': 'grayscale(0.65) brightness(1.12)'
+                  };
+
+                  const DEFAULT_CFG = {
+                    apiProvider: 'gemini', // 'gemini' (Google AI Studio) | 'openai' (第三方 OpenAI 格式)
+                    geminiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+                    geminiApiKey: '',
+                    geminiModel: 'gemini-2.5-flash',
+                    baseUrl: 'https://api.deepseek.com/v1',
+                    apiKey: '',
+                    model: 'deepseek-chat',
+                    asrModel: 'FunAudioLLM/SenseVoiceSmall',
+                    petSizeDp: 145,
+                    fontScale: 100,
+                    colorScheme: 'deepseek_blue',
+                    cityFallback: 'Shanghai',
+                    autoVideoComment: false,
+                    sysPrompt: '你是住在用户手机屏幕上的「大肥鱼」（DeepSeek 蓝白小鲸鱼桌宠），性格灵动粘人、俏皮体贴。每次说话简短自然（不超过65字）。收到手机电量、闹钟、未读消息、天气或歌名信息时，像贴心小伴侣一样自然叮嘱或吐槽。'
+                  };
+
+                  let config = {};
+                  let currentMode = 'peek';
+                  let dockEdge = 'bottom';
+                  let isScreenOn = true;
+                  let idleCollapseTimer = null;
+                  let bubbleHideTimer = null;
+                  let chatHistory = [];
+                  let cachedWeather = null;
+                  let lastWeatherFetchMs = 0;
+
+                  let anim = {
+                    tick: 0,
+                    jumpBounce: 0,
+                    mouthOpen: 0,
+                    beatBounce: 0,
+                    mood: 'calm',
+                    rubDist: 0
+                  };
+
+                  function hasActiveApiKey() {
+                    return config.apiProvider === 'gemini'
+                      ? Boolean(config.geminiApiKey && config.geminiApiKey.trim())
+                      : Boolean(config.apiKey && config.apiKey.trim());
+                  }
+
+                  function reloadWhaleConfig() {
+                    try {
+                      config = Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem('whale_v5_cfg') || '{}'));
+                    } catch (_) {
+                      config = Object.assign({}, DEFAULT_CFG);
+                    }
+                    const actor = document.getElementById('whale-actor');
+                    actor.style.width = config.petSizeDp + 'px';
+                    actor.style.height = config.petSizeDp + 'px';
+                    actor.style.filter = COLOR_SCHEMES[config.colorScheme] || 'none';
+                    const bubble = document.getElementById('pet-bubble');
+                    bubble.style.fontSize = Math.round(13 * (config.fontScale || 100) / 100) + 'px';
+                    if (window.OverlayBridge) {
+                      window.OverlayBridge.setOverlayMode(currentMode, parseInt(config.petSizeDp, 10) || 145, currentMode === 'chat');
+                    }
+                  }
+
+                  let officialWhaleImg = new Image();
+                  let loadedRealTexture = false;
+                  officialWhaleImg.onload = () => { loadedRealTexture = true; };
+                  officialWhaleImg.src = 'whale-official-icon.png';
+
+                  fetch('whale-assets-manifest.json')
+                    .then(r => r.json())
+                    .then(manifest => {
+                      const list = manifest.whaleImages || [];
+                      if (list.length > 0 && !loadedRealTexture) {
+                        officialWhaleImg.src = list[0];
+                      }
+                    }).catch(() => {});
+
+                  const canvas = document.getElementById('whale-canvas');
+                  const ctx = canvas.getContext('2d');
+
+                  function renderLoop() {
+                    anim.tick += 0.065;
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.save();
+
+                    const bounceOffset = -anim.jumpBounce * 28 - anim.beatBounce * 14 + Math.sin(anim.tick) * 3.5;
+                    const sway = anim.mood === 'dancing'
+                      ? Math.sin(anim.tick * 3.4) * 0.15
+                      : Math.sin(anim.tick * 0.75) * 0.04;
+
+                    ctx.translate(110, 122 + bounceOffset);
+                    ctx.rotate(sway);
+
+                    const squashX = 1 + (anim.jumpBounce + anim.beatBounce) * 0.1;
+                    const squashY = 1 - (anim.jumpBounce + anim.beatBounce) * 0.08;
+                    ctx.scale(squashX, squashY);
+
+                    if (loadedRealTexture && officialWhaleImg.complete && officialWhaleImg.naturalWidth > 0) {
+                      ctx.drawImage(officialWhaleImg, -86, -86, 172, 172);
+                      if (anim.mouthOpen > 0.08) {
+                        ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 18, 6, 2 + anim.mouthOpen * 6, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                      }
+                    } else {
+                      ctx.save();
+                      ctx.translate(50, 16);
+                      ctx.rotate(Math.sin(anim.tick * 2.6) * 0.26);
+                      ctx.fillStyle = '#3b82f6';
+                      ctx.beginPath(); ctx.ellipse(18, 0, 22, 12, -0.3, 0, Math.PI * 2); ctx.fill();
+                      ctx.restore();
+
+                      ctx.fillStyle = '#3b82f6';
+                      ctx.beginPath(); ctx.ellipse(0, 0, 64, 52, 0, 0, Math.PI * 2); ctx.fill();
+                      ctx.fillStyle = '#f8fafc';
+                      ctx.beginPath(); ctx.ellipse(-4, 16, 52, 34, 0, 0, Math.PI); ctx.fill();
+
+                      const isBlink = Math.sin(anim.tick * 0.45) > 0.97;
+                      ctx.strokeStyle = '#0f172a'; ctx.fillStyle = '#0f172a'; ctx.lineWidth = 3;
+                      [-24, 14].forEach(ex => {
+                        if (isBlink || anim.mood === 'happy' || anim.mood === 'love') {
+                          ctx.beginPath(); ctx.arc(ex, -6, 7, Math.PI, 0, false); ctx.stroke();
+                        } else {
+                          ctx.beginPath(); ctx.arc(ex, -6, 6.5, 0, Math.PI * 2); ctx.fill();
+                          ctx.fillStyle = '#fff';
+                          ctx.beginPath(); ctx.arc(ex - 2, -8, 2.2, 0, Math.PI * 2); ctx.fill();
+                          ctx.fillStyle = '#0f172a';
+                        }
+                      });
+
+                      ctx.fillStyle = 'rgba(244, 114, 182, 0.5)';
+                      ctx.beginPath(); ctx.ellipse(-34, 4, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+                      ctx.beginPath(); ctx.ellipse(24, 4, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+
+                      ctx.fillStyle = '#f43f5e';
+                      if (anim.mouthOpen > 0.06) {
+                        ctx.beginPath(); ctx.ellipse(-5, 8, 7, 2.5 + anim.mouthOpen * 8, 0, 0, Math.PI * 2); ctx.fill();
+                      } else {
+                        ctx.beginPath(); ctx.arc(-5, 6, 5, 0, Math.PI, false); ctx.stroke();
+                      }
+                    }
+                    ctx.restore();
+
+                    if (anim.mood === 'love') {
+                      ctx.font = '22px sans-serif'; ctx.fillText('❤️', 100, 28 + Math.sin(anim.tick * 3) * 4);
+                    } else if (anim.mood === 'thinking') {
+                      ctx.font = '19px sans-serif'; ctx.fillText('💭', 145, 34 + Math.sin(anim.tick * 4) * 4);
+                    } else if (anim.mood === 'dancing') {
+                      ctx.font = '19px sans-serif'; ctx.fillText('🎵', 148, 34 + Math.cos(anim.tick * 4) * 5);
+                    }
+
+                    anim.jumpBounce *= 0.84;
+                    anim.beatBounce *= 0.82;
+                    anim.mouthOpen *= 0.85;
+                    if (isScreenOn) {
+                      requestAnimationFrame(renderLoop);
+                    } else {
+                      setTimeout(renderLoop, 1000);
+                    }
+                  }
+
+                  const actor = document.getElementById('whale-actor');
+                  let pointerDown = false;
+                  let startX = 0, startY = 0;
+                  let movedTotal = 0;
+
+                  actor.addEventListener('pointerdown', e => {
+                    pointerDown = true;
+                    startX = e.screenX;
+                    startY = e.screenY;
+                    movedTotal = 0;
+                    anim.rubDist = 0;
+                    actor.setPointerCapture(e.pointerId);
+                    resetIdleCollapseTimer();
+                  });
+
+                  actor.addEventListener('pointermove', e => {
+                    if (!pointerDown) return;
+                    const dx = e.screenX - startX;
+                    const dy = e.screenY - startY;
+                    const step = Math.hypot(dx, dy);
+                    movedTotal += step;
+                    startX = e.screenX;
+                    startY = e.screenY;
+
+                    if (currentMode !== 'peek' && Math.abs(dy) < 12 && Math.abs(dx) < 28) {
+                      anim.rubDist += step;
+                      if (anim.rubDist > 320) {
+                        anim.rubDist = 0;
+                        anim.mood = 'love';
+                        anim.jumpBounce = 0.65;
+                        showBubble('呼噜噜～摸头好舒服呀 ❤️', 5000);
+                      }
+                    } else if (step > 2 && window.OverlayBridge) {
+                      window.OverlayBridge.moveOverlayBy(Math.round(dx / window.devicePixelRatio), Math.round(dy / window.devicePixelRatio));
+                    }
+                  });
+
+                  actor.addEventListener('pointerup', e => {
+                    if (!pointerDown) return;
+                    pointerDown = false;
+                    if (movedTotal < 14) {
+                      if (currentMode === 'peek') {
+                        wakeUpAndGreet();
+                      } else {
+                        anim.jumpBounce = 0.7;
+                        anim.mood = 'happy';
+                        const randomLine = WAKE_GREETINGS[Math.floor(Math.random() * WAKE_GREETINGS.length)];
+                        showBubble(randomLine, 9000);
+                        resetIdleCollapseTimer();
+                      }
+                    } else if (window.OverlayBridge) {
+                      window.OverlayBridge.snapToNearestEdge();
+                    }
+                  });
+
+                  window.onDockEdgeChanged = function(edge) {
+                    dockEdge = edge || 'bottom';
+                    document.body.classList.remove('edge-bottom', 'edge-left', 'edge-right');
+                    document.body.classList.add('edge-' + dockEdge);
+                  };
+
+                  function wakeUpAndGreet(customGreeting) {
+                    currentMode = 'active';
+                    document.body.classList.remove('mode-peek', 'mode-chat');
+                    document.body.classList.add('mode-active');
+                    if (window.OverlayBridge) {
+                      window.OverlayBridge.setOverlayMode('active', parseInt(config.petSizeDp, 10) || 145, false);
+                    }
+                    anim.jumpBounce = 0.95;
+                    anim.mood = 'happy';
+                    const line = customGreeting || WAKE_GREETINGS[Math.floor(Math.random() * WAKE_GREETINGS.length)];
+                    showBubble(line, 12000);
+                    resetIdleCollapseTimer();
+                  }
+
+                  function switchToActiveMode() {
+                    currentMode = 'active';
+                    document.body.classList.remove('mode-peek', 'mode-chat');
+                    document.body.classList.add('mode-active');
+                    if (window.OverlayBridge) {
+                      window.OverlayBridge.setOverlayMode('active', parseInt(config.petSizeDp, 10) || 145, false);
+                    }
+                    resetIdleCollapseTimer();
+                  }
+
+                  function openChatInput() {
+                    currentMode = 'chat';
+                    document.body.classList.remove('mode-peek', 'mode-active');
+                    document.body.classList.add('mode-chat');
+                    if (window.OverlayBridge) {
+                      window.OverlayBridge.setOverlayMode('chat', parseInt(config.petSizeDp, 10) || 145, true);
+                    }
+                    clearTimeout(idleCollapseTimer);
+                    setTimeout(() => {
+                      const inp = document.getElementById('chat-input');
+                      if (inp) inp.focus();
+                    }, 220);
+                  }
+
+                  function collapseToPeek() {
+                    currentMode = 'peek';
+                    document.getElementById('pet-bubble').style.display = 'none';
+                    document.body.classList.remove('mode-active', 'mode-chat');
+                    document.body.classList.add('mode-peek');
+                    if (window.OverlayBridge) {
+                      window.OverlayBridge.setOverlayMode('peek', parseInt(config.petSizeDp, 10) || 145, false);
+                    }
+                  }
+
+                  function resetIdleCollapseTimer() {
+                    clearTimeout(idleCollapseTimer);
+                    if (currentMode === 'active') {
+                      idleCollapseTimer = setTimeout(() => {
+                        collapseToPeek();
+                      }, 22000);
+                    }
+                  }
+
+                  function showBubble(text, durationMs = 10000) {
+                    const b = document.getElementById('pet-bubble');
+                    b.textContent = text;
+                    b.style.display = 'block';
+                    clearTimeout(bubbleHideTimer);
+                    if (durationMs > 0) {
+                      bubbleHideTimer = setTimeout(() => {
+                        b.style.display = 'none';
+                      }, durationMs);
+                    }
+                  }
+
+                  function startVoiceChat() {
+                    resetIdleCollapseTimer();
+                    if (window.OverlayBridge) {
+                      anim.mood = 'listening';
+                      showBubble('🎤 我在听，请说话...', 0);
+                      window.OverlayBridge.startVoiceRecognition();
+                    }
+                  }
+
+                  window.onVoiceResult = function(text) {
+                    anim.mood = 'calm';
+                    if (text && text.trim()) {
+                      askWhaleLLM(text.trim(), true);
+                    }
+                  };
+
+                  window.onVoiceError = function() {
+                    anim.mood = 'calm';
+                    showBubble('没听清呢，再点一下「🎤 语音」或用「💬 对话」打字告诉我吧～', 5000);
+                  };
+
+                  function submitChatText() {
+                    const inp = document.getElementById('chat-input');
+                    const text = inp.value.trim();
+                    if (!text) return;
+                    inp.value = '';
+                    switchToActiveMode();
+                    askWhaleLLM(text, true);
+                  }
+
+                  async function fetchWeatherIfNeeded(lat, lon) {
+                    const now = Date.now();
+                    if (cachedWeather && (now - lastWeatherFetchMs < 25 * 60 * 1000)) {
+                      return cachedWeather;
+                    }
+                    try {
+                      let queryLat = lat;
+                      let queryLon = lon;
+                      let cityName = config.cityFallback || '本地';
+                      if (!queryLat || !queryLon) {
+                        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh`);
+                        const geoData = await geoRes.json();
+                        if (geoData.results && geoData.results.length > 0) {
+                          queryLat = geoData.results[0].latitude;
+                          queryLon = geoData.results[0].longitude;
+                          cityName = geoData.results[0].name;
+                        }
+                      }
+                      if (queryLat && queryLon) {
+                        const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${queryLat}&longitude=${queryLon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`);
+                        const wData = await wRes.json();
+                        if (wData && wData.current) {
+                          const code = wData.current.weather_code;
+                          const desc = code === 0 ? '晴朗' : (code <= 3 ? '多云' : (code <= 67 ? '有雨' : (code <= 77 ? '降雪' : '雷阵雨')));
+                          cachedWeather = `${cityName} ${desc} ${wData.current.temperature_2m}°C (湿度${wData.current.relative_humidity_2m}%)`;
+                          lastWeatherFetchMs = now;
+                        }
+                      }
+                    } catch (_) {}
+                    return cachedWeather || '未知天气';
+                  }
+
+                  async function buildFullPhoneContextSummary() {
+                    let dev = {};
+                    if (window.OverlayBridge) {
+                      try {
+                        dev = JSON.parse(window.OverlayBridge.getDeviceContextJson() || '{}');
+                      } catch (_) {}
+                    }
+                    const weatherStr = await fetchWeatherIfNeeded(dev.lat, dev.lon);
+                    return `[手机实时状态快照] 时间:${dev.timeStr || '未知'} | 电量:${dev.batteryPct ?? '?'}% (${dev.isCharging ? '充电中' : '未充电'}, 温度:${dev.batteryTempC ?? '?'}°C) | 天气:${weatherStr} | 下个闹钟:${dev.nextAlarm || '无'} | 未接来电:${dev.missedCalls || 0}个 | 未读短信:${dev.unreadSms || 0}条 | 未读社交消息:${dev.unreadSocial || 0}条 | 正在放的歌:${dev.currentSong || '无'}`;
+                  }
+
+                  window.triggerHalfHourContextChat = async function(forceWake) {
+                    if (!isScreenOn && !forceWake) return;
+                    if (!hasActiveApiKey()) {
+                      if (forceWake) {
+                        wakeUpAndGreet('主人，先在主程序里填好 Google AI Studio 或第三方 OpenAI 的 API Key，我就能根据手机状态主动找你聊天啦！');
+                      }
+                      return;
+                    }
+                    const summary = await buildFullPhoneContextSummary();
+                    if (currentMode === 'peek') {
+                      wakeUpAndGreet('✨ 探头看看你～');
+                    }
+                    await askWhaleLLM(`${summary}\n请根据上面我手机此刻的真实状态（比如时间、电量、天气、闹钟、未读消息或正在听的歌），主动找我搭一句话（不超过55字，自然俏皮，不用把所有数字念一遍，挑最值得关心的一两个点说即可）。`, false);
+                  };
+
+                  setInterval(() => {
+                    if (isScreenOn) {
+                      window.triggerHalfHourContextChat(false);
+                    }
+                  }, 30 * 60 * 1000);
+
+                  window.onScreenStateChanged = function(on) {
+                    isScreenOn = Boolean(on);
+                  };
+
+                  window.onNativeInstantEvent = function(type, defaultLine) {
+                    if (!isScreenOn) return;
+                    wakeUpAndGreet(defaultLine);
+                    if (hasActiveApiKey()) {
+                      buildFullPhoneContextSummary().then(summary => {
+                        askWhaleLLM(`${summary}\n刚刚发生了即时事件：【${type}】，请作为桌面大肥鱼立马拉近距离跟我说句贴心话（45字以内）。`, false);
+                      });
+                    }
+                  };
+
+                  let lastCommentedSong = '';
+                  window.onNativeSongChanged = function(songInfo) {
+                    if (!isScreenOn || !songInfo || songInfo === lastCommentedSong) return;
+                    lastCommentedSong = songInfo;
+                    anim.mood = 'dancing';
+                    anim.beatBounce = 0.6;
+                    if (hasActiveApiKey() && Math.random() < 0.65) {
+                      if (currentMode === 'peek') wakeUpAndGreet(`🎵 听到你切歌啦：《${songInfo}》`);
+                      askWhaleLLM(`我刚刚在手机上播放了歌曲《${songInfo}》，请作为陪我听歌的大肥鱼简短点评或哼两句互动（45字以内）。`, false);
+                    }
+                  };
+
+                  window.onSystemAudioBeat = function(rms, isBeat) {
+                    if (rms > 0.04) {
+                      anim.mood = 'dancing';
+                      if (isBeat) anim.beatBounce = Math.min(0.85, rms * 1.1);
+                    } else if (anim.mood === 'dancing') {
+                      anim.mood = 'calm';
+                    }
+                  };
+
+                  let isTranscribingWav = false;
+                  window.onSystemAudioWav = async function(base64Wav) {
+                    if (!config.autoVideoComment || !hasActiveApiKey() || isTranscribingWav) return;
+                    isTranscribingWav = true;
+                    try {
+                      if (config.apiProvider === 'gemini') {
+                        // Google AI Studio 原生支持 WAV 音频多模态直接理解！无需额外 Whisper 接口
+                        const base = (config.geminiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
+                        const cleanModel = (config.geminiModel || 'gemini-2.5-flash').replace(/^models\//, '');
+                        const url = `${base}/models/${cleanModel}:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`;
+                        const res = await fetch(url, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            systemInstruction: { parts: [{ text: config.sysPrompt }] },
+                            contents: [{
+                              role: 'user',
+                              parts: [
+                                { inlineData: { mimeType: 'audio/wav', data: base64Wav } },
+                                { text: '上面是我手机正在播放的系统音频片段。如果能听出视频台词、歌词或明显情绪，请作为陪我看视频/听歌的大肥鱼自然吐槽或接一句话（不超过50字）；如果是无意义噪音请只回复“PASS”。' }
+                              ]
+                            }]
+                          })
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          const reply = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
+                          if (reply && !reply.includes('PASS')) {
+                            if (currentMode === 'peek') wakeUpAndGreet(reply);
+                            else showBubble(reply, 12000);
+                            anim.mouthOpen = 0.85;
+                          }
+                        }
+                      } else {
+                        const bin = atob(base64Wav);
+                        const arr = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                        const blob = new Blob([arr], { type: 'audio/wav' });
+                        const fd = new FormData();
+                        fd.append('file', blob, 'sys.wav');
+                        fd.append('model', config.asrModel || 'FunAudioLLM/SenseVoiceSmall');
+                        const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/audio/transcriptions`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${config.apiKey}` },
+                          body: fd
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          if (data.text && data.text.trim().length >= 4) {
+                            if (currentMode === 'peek') wakeUpAndGreet('🎧 听到视频里在说...');
+                            await askWhaleLLM(`[手机正在播放的视频/音频台词]：「${data.text.trim()}」，请跟我看视频一样简短接话吐槽。`, false);
+                          }
+                        }
+                      }
+                    } catch (_) {
+                    } finally {
+                      isTranscribingWav = false;
+                    }
+                  };
+
+                  // 双引擎流式对话核心（支持 Google AI Studio Gemini SSE 与第三方 OpenAI SSE）
+                  async function askWhaleLLM(promptText, includeDeviceSnapshot) {
+                    if (!hasActiveApiKey()) {
+                      showBubble('还没有配置 API Key 哦，点开「大肥鱼全局伴侣」主程序填好就能跟我畅聊啦！', 7000);
+                      return;
+                    }
+                    anim.mood = 'thinking';
+                    showBubble('思考中...', 0);
+                    resetIdleCollapseTimer();
+
+                    let finalUserContent = promptText;
+                    if (includeDeviceSnapshot) {
+                      const snap = await buildFullPhoneContextSummary();
+                      finalUserContent = `${snap}\n用户对你说：${promptText}`;
+                    }
+
+                    chatHistory.push({ role: 'user', content: finalUserContent });
+                    if (chatHistory.length > 14) chatHistory = chatHistory.slice(-14);
+
+                    try {
+                      let reply = '';
+                      if (config.apiProvider === 'gemini') {
+                        const base = (config.geminiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
+                        const cleanModel = (config.geminiModel || 'gemini-2.5-flash').replace(/^models\//, '');
+                        const url = `${base}/models/${cleanModel}:streamGenerateContent?alt=sse&key=${encodeURIComponent(config.geminiApiKey)}`;
+                        const geminiContents = chatHistory.map(m => ({
+                          role: m.role === 'assistant' ? 'model' : 'user',
+                          parts: [{ text: m.content }]
+                        }));
+                        const res = await fetch(url, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            systemInstruction: { parts: [{ text: config.sysPrompt }] },
+                            contents: geminiContents
+                          })
+                        });
+                        if (!res.ok) throw new Error('Gemini HTTP ' + res.status);
+
+                        const reader = res.body.getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          const chunk = decoder.decode(value, { stream: true });
+                          const lines = chunk.split('\n').filter(l => l.trim().startsWith('data:'));
+                          for (const line of lines) {
+                            const payload = line.replace(/^data:\s*/, '').trim();
+                            if (!payload || payload === '[DONE]') continue;
+                            try {
+                              const parsed = JSON.parse(payload);
+                              const parts = parsed.candidates?.[0]?.content?.parts || [];
+                              const delta = parts.map(p => p.text || '').join('');
+                              if (delta) {
+                                reply += delta;
+                                anim.mouthOpen = 0.92;
+                                showBubble(reply, 14000);
+                              }
+                            } catch (_) {}
+                          }
+                        }
+                      } else {
+                        const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.apiKey}`
+                          },
+                          body: JSON.stringify({
+                            model: config.model || 'deepseek-chat',
+                            stream: true,
+                            messages: [
+                              { role: 'system', content: config.sysPrompt },
+                              ...chatHistory
+                            ]
+                          })
+                        });
+                        if (!res.ok) throw new Error('OpenAI HTTP ' + res.status);
+
+                        const reader = res.body.getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          const chunk = decoder.decode(value, { stream: true });
+                          const lines = chunk.split('\n').filter(l => l.trim().startsWith('data:'));
+                          for (const line of lines) {
+                            const payload = line.replace(/^data:\s*/, '').trim();
+                            if (payload === '[DONE]') break;
+                            try {
+                              const parsed = JSON.parse(payload);
+                              const delta = parsed.choices?.[0]?.delta?.content || '';
+                              if (delta) {
+                                reply += delta;
+                                anim.mouthOpen = 0.92;
+                                showBubble(reply, 14000);
+                              }
+                            } catch (_) {}
+                          }
+                        }
+                      }
+
+                      chatHistory.push({ role: 'assistant', content: reply });
+                      anim.mood = 'happy';
+                      anim.jumpBounce = 0.45;
+                      resetIdleCollapseTimer();
+                    } catch (err) {
+                      anim.mood = 'calm';
+                      showBubble('请求接口出错 (' + err.message + ')，请打开主程序检查接口与模型设置～', 6000);
+                    }
+                  }
+
+                  reloadWhaleConfig();
+                  requestAnimationFrame(renderLoop);
+                </script>
+              </body>
+              </html>
+              """).lstrip())
+
+          # 9. 生成主程序控制面板页面 control-panel.html（新增 Google AI Studio 与第三方 OpenAI 切换 + 「🔗 连接并拉取可用模型」按钮与下拉菜单）
+          with open(os.path.join(www_dir, 'control-panel.html'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""
+              <!DOCTYPE html>
+              <html lang="zh-CN">
+              <head>
+                <meta charset="UTF-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                <title>大肥鱼全局伴侣 · 控制台</title>
                 <style>
                   :root {
                     --bg: #0f172a;
-                    --card: rgba(30, 41, 59, 0.92);
+                    --card: #1e293b;
                     --accent: #38bdf8;
                     --text: #f8fafc;
                     --mute: #94a3b8;
                   }
-                  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+                  * { box-sizing: border-box; }
                   body {
-                    margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
-                    background: radial-gradient(circle at 50% 80%, #1e293b 0%, #0f172a 100%);
+                    margin: 0; padding: 18px 16px 48px; background: var(--bg); color: var(--text);
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                    color: var(--text);
                   }
-                  .top-bar {
-                    position: fixed; top: 14px; left: 14px; right: 14px; z-index: 100;
-                    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+                  .header {
+                    display: flex; align-items: center; gap: 14px; margin-bottom: 18px;
                   }
-                  .pill {
-                    background: var(--card); border: 1px solid rgba(255,255,255,0.12);
-                    padding: 8px 14px; border-radius: 999px; font-size: 13px;
-                    display: inline-flex; align-items: center; gap: 8px; backdrop-filter: blur(10px);
+                  .header img {
+                    width: 56px; height: 56px; border-radius: 16px; background: #334155; object-fit: contain;
+                  }
+                  .card {
+                    background: var(--card); border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 18px; padding: 16px; margin-bottom: 14px;
+                  }
+                  .card h3 {
+                    margin: 0 0 10px; font-size: 15px; display: flex; justify-content: space-between; align-items: center;
                   }
                   .btn {
-                    background: var(--card); color: var(--text); border: 1px solid rgba(255,255,255,0.15);
-                    padding: 8px 14px; border-radius: 999px; font-size: 13px; cursor: pointer;
+                    background: #0284c7; color: #fff; border: none; border-radius: 999px;
+                    padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;
+                    margin-top: 8px;
                   }
-                  .btn.active { border-color: var(--accent); color: var(--accent); }
-                  .audio-meter {
-                    width: 56px; height: 8px; background: rgba(255,255,255,0.12);
-                    border-radius: 4px; overflow: hidden;
+                  .btn.secondary {
+                    background: #334155; color: #e2e8f0;
                   }
-                  .audio-meter-fill {
-                    width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8);
-                    transition: width 0.08s linear;
+                  .btn.connect {
+                    background: #0d9488; color: #ffffff;
                   }
-                  .npc-home-nest {
-                    position: fixed; bottom: 38px; left: 50%; transform: translateX(-50%);
-                    width: 150px; height: 34px; border-radius: 50%;
-                    background: rgba(56, 189, 248, 0.16); border: 1.5px dashed rgba(56, 189, 248, 0.45);
-                    pointer-events: none; z-index: 5;
+                  .provider-tabs {
+                    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
                   }
-                  #pet-stage {
-                    position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%);
-                    width: 220px; height: 220px; z-index: 20; touch-action: none;
-                    display: flex; align-items: center; justify-content: center;
-                    transition: transform 0.08s ease-out;
+                  .tab-btn {
+                    background: #0f172a; color: var(--mute); border: 1.5px solid rgba(255,255,255,0.12);
+                    border-radius: 12px; padding: 10px 8px; font-size: 13px; font-weight: 600;
+                    cursor: pointer; text-align: center;
                   }
-                  #pet-stage img, #pet-stage canvas, #pet-stage iframe {
-                    max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none;
+                  .tab-btn.active {
+                    background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: #38bdf8;
                   }
-                  #speech-bubble {
-                    position: fixed; bottom: 280px; left: 50%; transform: translateX(-50%);
-                    max-width: 86vw; min-width: 180px; background: #ffffff; color: #0f172a;
-                    padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5;
-                    box-shadow: 0 10px 28px rgba(0,0,0,0.35); z-index: 40; display: none;
-                    user-select: text; -webkit-user-select: text;
+                  .status-grid {
+                    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;
                   }
-                  #speech-bubble::after {
-                    content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
-                    border-width: 8px 8px 0; border-style: solid; border-color: #ffffff transparent;
+                  .stat-item {
+                    background: rgba(15, 23, 42, 0.65); padding: 9px 11px; border-radius: 10px;
+                    border: 1px solid rgba(255,255,255,0.06);
                   }
-                  .chat-dock {
-                    position: fixed; bottom: 0; left: 0; right: 0; z-index: 80;
-                    background: var(--card); border-top: 1px solid rgba(255,255,255,0.1);
-                    padding: 10px 14px 18px; display: flex; gap: 8px; align-items: center;
-                    backdrop-filter: blur(12px);
-                  }
-                  .chat-input {
-                    flex: 1; background: rgba(15, 23, 42, 0.75); color: var(--text);
-                    border: 1px solid rgba(255,255,255,0.16); border-radius: 999px;
-                    padding: 10px 16px; font-size: 14px; outline: none;
-                    user-select: text; -webkit-user-select: text;
-                  }
-                  .modal {
-                    position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200;
-                    display: none; align-items: center; justify-content: center; padding: 16px;
-                  }
-                  .modal-box {
-                    width: 100%; max-width: 420px; max-height: 88vh; overflow-y: auto;
-                    background: #1e293b; border: 1px solid rgba(255,255,255,0.15);
-                    border-radius: 20px; padding: 20px;
-                  }
+                  .stat-item span { display: block; color: var(--mute); font-size: 11px; margin-bottom: 2px; }
+                  .stat-item b { font-size: 13px; color: #38bdf8; }
                   .field { margin-bottom: 12px; }
-                  .field label { display: block; font-size: 12px; color: var(--mute); margin-bottom: 4px; }
-                  .field input, .field textarea, .field select {
+                  .field label { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); margin-bottom: 5px; }
+                  .field input, .field select, .field textarea {
                     width: 100%; padding: 9px 12px; border-radius: 10px;
-                    border: 1px solid rgba(255,255,255,0.18); background: #0f172a; color: var(--text);
-                    font-size: 13px; user-select: text; -webkit-user-select: text;
+                    border: 1px solid rgba(255,255,255,0.16); background: #0f172a; color: var(--text); font-size: 13px;
+                  }
+                  input[type="range"] { padding: 0; accent-color: var(--accent); }
+                  #connect-status {
+                    font-size: 12px; margin-top: 8px; padding: 8px 12px; border-radius: 10px;
+                    background: rgba(15, 23, 42, 0.7); display: none;
                   }
                 </style>
               </head>
               <body>
-                <div class="top-bar">
-                  <div class="pill">
-                    <span id="status-dot">🐟</span>
-                    <span id="status-text">陪伴中 · 亲密度 <b id="intimacy-count">0</b></span>
-                    <div class="audio-meter" title="系统声音实时律动电平">
-                      <div class="audio-meter-fill" id="audio-meter-fill"></div>
-                    </div>
-                  </div>
-                  <div style="display:flex; gap:6px;">
-                    <button class="btn" id="btn-sys-audio" onclick="toggleSystemAudio()">🎧 听系统声音</button>
-                    <button class="btn" onclick="openSettings()">⚙️ 接口设置</button>
+                <div class="header">
+                  <img src="whale-official-icon.png" onerror="this.style.display='none'" />
+                  <div>
+                    <h2 style="margin:0; font-size:18px;">🐟 大肥鱼全局悬浮伴侣 v5</h2>
+                    <p style="margin:4px 0 0; font-size:12px; color:var(--mute);">Google AI Studio + 第三方 OpenAI 双引擎 · 贴边半探头</p>
                   </div>
                 </div>
 
-                <div id="speech-bubble"></div>
-                <div class="npc-home-nest"></div>
-
-                <div id="pet-stage">
-                  <canvas id="whale-fallback-canvas" width="220" height="220"></canvas>
+                <!-- 1. 全局悬浮窗与权限开关 -->
+                <div class="card">
+                  <h3>
+                    <span>🚀 第一步：开启全局悬浮窗与状态感知</span>
+                    <span id="overlay-badge" style="font-size:12px; color:#38bdf8;">检测中...</span>
+                  </h3>
+                  <button class="btn" id="btn-toggle-overlay" onclick="MainBridge.toggleFloatingOverlay()">开启全局悬浮桌宠（跨应用显示）</button>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;">
+                    <button class="btn secondary" onclick="MainBridge.openNotificationAccessSettings()">🔔 授权通知/歌名监听</button>
+                    <button class="btn secondary" onclick="toggleSysAudio()">🎧 开启系统内录律动</button>
+                  </div>
+                  <button class="btn secondary" onclick="MainBridge.triggerTestContextGreeting()">✨ 立即让大肥鱼根据当前手机状态跟我搭话</button>
                 </div>
 
-                <div class="chat-dock">
-                  <button class="btn" id="btn-mic" onclick="triggerVoiceInput()">🎤 说话</button>
-                  <input class="chat-input" id="chat-input" placeholder="和大肥鱼聊聊，或点🎤语音输入..." onkeydown="if(event.key==='Enter')sendChatMessage()" />
-                  <button class="btn active" onclick="sendChatMessage()">发送</button>
-                </div>
+                <!-- 2. 双接口引擎设置（Google AI Studio 官方 API + 第三方 OpenAI 接口 + 一键连接拉取模型） -->
+                <div class="card">
+                  <h3>🔌 第二步：选择 AI 接口并连接拉取模型</h3>
+                  <div class="provider-tabs">
+                    <div class="tab-btn active" id="tab-gemini" onclick="switchProviderTab('gemini')">✨ Google AI Studio<br><span style="font-size:11px;font-weight:400;">官方 Gemini 接口</span></div>
+                    <div class="tab-btn" id="tab-openai" onclick="switchProviderTab('openai')">🌐 第三方 OpenAI 格式<br><span style="font-size:11px;font-weight:400;">DeepSeek / 硅基 / NewAPI</span></div>
+                  </div>
 
-                <div class="modal" id="settings-modal">
-                  <div class="modal-box">
-                    <h3 style="margin-top:0;">⚙️ 自定义 OpenAI 接口与伴侣设置</h3>
+                  <!-- Google AI Studio 专属配置区 -->
+                  <div id="panel-gemini">
                     <div class="field">
-                      <label>API Base URL（兼容所有 OpenAI 格式，如 DeepSeek / 硅基流动 / NewAPI）</label>
-                      <input id="cfg-base-url" placeholder="https://api.deepseek.com/v1" />
+                      <label><span>Google AI Studio API Key（在 aistudio.google.com 获取）</span></label>
+                      <input id="cfg-gemini-key" type="password" placeholder="AIzaSy..." />
                     </div>
                     <div class="field">
-                      <label>API Key</label>
-                      <input id="cfg-api-key" type="password" placeholder="sk-..." />
+                      <label><span>Gemini 接口地址（默认官方直连，也可填你自己的反代地址）</span></label>
+                      <input id="cfg-gemini-url" placeholder="https://generativelanguage.googleapis.com/v1beta" />
                     </div>
-                    <div class="field">
-                      <label>对话模型名称（Chat Model）</label>
-                      <input id="cfg-model" placeholder="deepseek-chat" />
-                    </div>
-                    <div class="field">
-                      <label>语音转文字模型（用于识别系统视频声音 / Whisper 兼容接口）</label>
-                      <input id="cfg-asr-model" placeholder="FunAudioLLM/SenseVoiceSmall 或 whisper-1" />
-                    </div>
-                    <div class="field">
-                      <label>看视频/听歌自动吐槽开关（开启后每 6 秒识别一次系统播放台词并互动）</label>
-                      <select id="cfg-auto-video-comment">
-                        <option value="false">仅跟随音乐节奏摇摆跳舞（省 Token）</option>
-                        <option value="true">开启视频台词/歌词识别并主动陪聊吐槽</option>
+                    <button class="btn connect" onclick="connectAndFetchModels('gemini')">🔗 连接 Google AI Studio 并拉取可用模型</button>
+                    <div class="field" style="margin-top:12px;">
+                      <label><span>选择拉取到的 Gemini 模型（或直接在下方输入框手填）</span></label>
+                      <select id="sel-gemini-models" onchange="if(this.value) document.getElementById('cfg-gemini-model').value=this.value; saveAllConfig();">
+                        <option value="gemini-2.5-flash">gemini-2.5-flash（推荐 · 速度快且支持原生听音频）</option>
+                        <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                        <option value="gemini-2.0-flash">gemini-2.0-flash</option>
                       </select>
                     </div>
                     <div class="field">
-                      <label>大肥鱼角色人设（System Prompt）</label>
-                      <textarea id="cfg-sys-prompt" rows="3"></textarea>
+                      <label><span>当前使用的 Gemini 模型 ID</span></label>
+                      <input id="cfg-gemini-model" placeholder="gemini-2.5-flash" />
                     </div>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
-                      <button class="btn" onclick="closeSettings()">取消</button>
-                      <button class="btn active" onclick="saveSettings()">保存设置</button>
+                  </div>
+
+                  <!-- 第三方 OpenAI 兼容接口配置区 -->
+                  <div id="panel-openai" style="display:none;">
+                    <div class="field">
+                      <label><span>API Base URL（兼容所有 OpenAI 格式，如 DeepSeek / 硅基流动 / NewAPI）</span></label>
+                      <input id="cfg-base-url" placeholder="https://api.deepseek.com/v1" />
                     </div>
+                    <div class="field">
+                      <label><span>API Key</span></label>
+                      <input id="cfg-api-key" type="password" placeholder="sk-..." />
+                    </div>
+                    <button class="btn connect" onclick="connectAndFetchModels('openai')">🔗 连接第三方接口并拉取可用模型</button>
+                    <div class="field" style="margin-top:12px;">
+                      <label><span>选择拉取到的可用模型（点击上方连接按钮后自动刷新）</span></label>
+                      <select id="sel-openai-models" onchange="if(this.value) document.getElementById('cfg-model').value=this.value; saveAllConfig();">
+                        <option value="deepseek-chat">deepseek-chat（默认）</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label><span>当前使用的对话模型 ID（Chat Model）</span></label>
+                      <input id="cfg-model" placeholder="deepseek-chat" />
+                    </div>
+                    <div class="field">
+                      <label><span>语音转文字模型（用于第三方接口下识别系统视频声音）</span></label>
+                      <input id="cfg-asr-model" placeholder="FunAudioLLM/SenseVoiceSmall 或 whisper-1" />
+                    </div>
+                  </div>
+
+                  <div id="connect-status"></div>
+
+                  <div class="field" style="margin-top:12px;">
+                    <label><span>默认城市名（当未开 GPS 定位时用于查询免 Key 实时天气）</span></label>
+                    <input id="cfg-city" placeholder="Shanghai 或 Beijing" />
+                  </div>
+                  <div class="field">
+                    <label><span>看视频自动识别台词并吐槽（Gemini 模式下原生多模态直听音频）</span></label>
+                    <select id="cfg-auto-video">
+                      <option value="false">仅跟随音乐节拍跳舞（省 Token）</option>
+                      <option value="true">每 6 秒识别一次系统播放声音并主动吐槽</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label><span>大肥鱼角色人设（System Prompt）</span></label>
+                    <textarea id="cfg-sys-prompt" rows="3"></textarea>
+                  </div>
+                  <button class="btn" onclick="saveAllConfig(true)">💾 保存全部设置并同步给悬浮桌宠</button>
+                </div>
+
+                <!-- 3. 桌宠大小、配色与外观自由调节 -->
+                <div class="card">
+                  <h3>🎨 外观与尺寸自由调节（实时同步悬浮窗）</h3>
+                  <div class="field">
+                    <label><span>桌宠身体大小（90dp ~ 260dp）</span><b id="lbl-size">145 dp</b></label>
+                    <input type="range" id="cfg-size" min="90" max="260" step="5" value="145" oninput="document.getElementById('lbl-size').textContent=this.value+' dp'; saveAllConfig();" />
+                  </div>
+                  <div class="field">
+                    <label><span>对话气泡文字大小</span></label>
+                    <select id="cfg-font" onchange="saveAllConfig()">
+                      <option value="100">100%（标准）</option>
+                      <option value="125">125%（偏大）</option>
+                      <option value="150">150%（特大清晰）</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label><span>大肥鱼配色方案（8 套主题）</span></label>
+                    <select id="cfg-scheme" onchange="saveAllConfig()">
+                      <option value="deepseek_blue">🌊 DeepSeek 经典深海蓝（默认）</option>
+                      <option value="claude_amber">🍯 Claude 暖阳琥珀橘</option>
+                      <option value="sakura_pink">🌸 樱花元气粉</option>
+                      <option value="mint_emerald">🌿 薄荷翡翠绿</option>
+                      <option value="violet_dream">🔮 幻境星云紫</option>
+                      <option value="sunset_coral">🌇 落日珊瑚红</option>
+                      <option value="cyber_cyan">⚡ 赛博霓虹青</option>
+                      <option value="moonlight_silver">🌙 月光银灰</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- 4. KLWP 级手机实时状态监控预览 -->
+                <div class="card">
+                  <h3>
+                    <span>📱 手机实时状态感知（每 30 分钟自动生成对话）</span>
+                    <span style="font-size:11px; color:var(--mute); cursor:pointer;" onclick="refreshDashboard()">🔄 刷新</span>
+                  </h3>
+                  <div class="status-grid">
+                    <div class="stat-item"><span>电量与温度</span><b id="st-battery">--</b></div>
+                    <div class="stat-item"><span>下一个闹钟</span><b id="st-alarm">--</b></div>
+                    <div class="stat-item"><span>未接来电 / 未读短信</span><b id="st-calls-sms">--</b></div>
+                    <div class="stat-item"><span>未读微信与社交消息</span><b id="st-social">--</b></div>
+                    <div class="stat-item" style="grid-column: span 2;"><span>🎵 正在播放的歌曲（切歌自动感知）</span><b id="st-song">暂无播放</b></div>
                   </div>
                 </div>
 
                 <script>
                   const DEFAULT_CFG = {
+                    apiProvider: 'gemini',
+                    geminiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+                    geminiApiKey: '',
+                    geminiModel: 'gemini-2.5-flash',
                     baseUrl: 'https://api.deepseek.com/v1',
                     apiKey: '',
                     model: 'deepseek-chat',
                     asrModel: 'FunAudioLLM/SenseVoiceSmall',
+                    petSizeDp: 145,
+                    fontScale: 100,
+                    colorScheme: 'deepseek_blue',
+                    cityFallback: 'Shanghai',
                     autoVideoComment: false,
-                    sysPrompt: '你是住在用户手机桌面上的「大肥鱼」（DeepSeek 蓝白配色小鲸鱼娘），性格灵动粘人、温柔俏皮。回复简短自然（不超过80字），像在桌边陪着用户一样。当收到【系统正在播放的声音内容】时，像一起看视频或听歌的小伙伴一样自然接话或吐槽。'
-                  };
-                  let config = Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem('whale_cfg') || '{}'));
-                  let intimacy = parseInt(localStorage.getItem('whale_intimacy') || '0', 10);
-                  let chatHistory = [];
-                  let petState = {
-                    x: window.innerWidth / 2,
-                    y: window.innerHeight - 158,
-                    vx: 0, vy: 0,
-                    dragging: false,
-                    rubDistance: 0,
-                    lastPointerX: 0, lastPointerY: 0,
-                    mouthOpen: 0,
-                    beatBounce: 0,
-                    mood: 'calm',
-                    sysAudioActive: false
+                    sysPrompt: '你是住在用户手机屏幕上的「大肥鱼」（DeepSeek 蓝白小鲸鱼桌宠），性格灵动粘人、俏皮体贴。每次说话简短自然（不超过65字）。收到手机电量、闹钟、未读消息、天气或歌名信息时，像贴心小伴侣一样自然叮嘱或吐槽。'
                   };
 
-                  document.getElementById('intimacy-count').textContent = intimacy;
+                  let currentProvider = 'gemini';
 
-                  let whaleSprites = [];
-                  fetch('whale-assets-manifest.json')
-                    .then(r => r.json())
-                    .then(manifest => {
-                      const pngs = (manifest.files || []).filter(f => f.includes('whale') && f.endsWith('.png'));
-                      pngs.forEach(src => {
-                        const img = new Image();
-                        img.src = src;
-                        whaleSprites.push({ src, img });
-                      });
-                    }).catch(() => {});
-
-                  const canvas = document.getElementById('whale-fallback-canvas');
-                  const ctx = canvas.getContext('2d');
-                  let tick = 0;
-
-                  function renderWhaleFrame() {
-                    tick += 0.06;
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.save();
-
-                    const breathY = Math.sin(tick) * 4 - petState.beatBounce * 14;
-                    const swayAngle = petState.mood === 'dancing'
-                      ? Math.sin(tick * 3.2) * 0.14
-                      : Math.sin(tick * 0.7) * 0.04;
-
-                    ctx.translate(110, 125 + breathY);
-                    ctx.rotate(swayAngle);
-
-                    const thumb = whaleSprites.find(s => s.src.includes('thumb') || s.src.includes('icon') || s.src.includes('preview'));
-                    if (thumb && thumb.img.complete && thumb.img.naturalWidth > 0) {
-                      const scale = 1 + petState.beatBounce * 0.08;
-                      ctx.scale(scale, 2 - scale);
-                      ctx.drawImage(thumb.img, -80, -80, 160, 160);
-                    } else {
-                      const squash = 1 + petState.beatBounce * 0.12;
-                      ctx.scale(squash, 2 - squash);
-
-                      ctx.save();
-                      ctx.translate(52, 18);
-                      ctx.rotate(Math.sin(tick * 2.5) * 0.25);
-                      ctx.fillStyle = '#3b82f6';
-                      ctx.beginPath();
-                      ctx.ellipse(18, 0, 22, 12, -0.3, 0, Math.PI * 2);
-                      ctx.fill();
-                      ctx.restore();
-
-                      ctx.fillStyle = '#3b82f6';
-                      ctx.beginPath();
-                      ctx.ellipse(0, 0, 64, 52, 0, 0, Math.PI * 2);
-                      ctx.fill();
-
-                      ctx.fillStyle = '#f8fafc';
-                      ctx.beginPath();
-                      ctx.ellipse(-4, 16, 52, 34, 0, 0, Math.PI);
-                      ctx.fill();
-
-                      ctx.save();
-                      ctx.translate(-52, 10);
-                      ctx.rotate(petState.mood === 'happy' || petState.mood === 'love' ? Math.sin(tick * 6) * 0.5 : -0.3);
-                      ctx.fillStyle = '#2563eb';
-                      ctx.beginPath();
-                      ctx.ellipse(-10, 4, 16, 9, -0.4, 0, Math.PI * 2);
-                      ctx.fill();
-                      ctx.restore();
-
-                      const isBlink = Math.sin(tick * 0.45) > 0.97;
-                      ctx.strokeStyle = '#0f172a';
-                      ctx.fillStyle = '#0f172a';
-                      ctx.lineWidth = 3;
-                      [-24, 14].forEach(ex => {
-                        if (isBlink || petState.mood === 'happy' || petState.mood === 'love') {
-                          ctx.beginPath();
-                          ctx.arc(ex, -6, 7, Math.PI, 0, false);
-                          ctx.stroke();
-                        } else {
-                          ctx.beginPath();
-                          ctx.arc(ex, -6, 6.5, 0, Math.PI * 2);
-                          ctx.fill();
-                          ctx.fillStyle = '#ffffff';
-                          ctx.beginPath();
-                          ctx.arc(ex - 2, -8, 2.2, 0, Math.PI * 2);
-                          ctx.fill();
-                          ctx.fillStyle = '#0f172a';
-                        }
-                      });
-
-                      ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
-                      ctx.beginPath(); ctx.ellipse(-34, 4, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-                      ctx.beginPath(); ctx.ellipse(24, 4, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-
-                      ctx.fillStyle = '#f43f5e';
-                      if (petState.mouthOpen > 0.05) {
-                        ctx.beginPath();
-                        ctx.ellipse(-5, 8, 7, 3 + petState.mouthOpen * 8, 0, 0, Math.PI * 2);
-                        ctx.fill();
-                      } else {
-                        ctx.beginPath();
-                        ctx.arc(-5, 6, 5, 0, Math.PI, false);
-                        ctx.stroke();
-                      }
-                    }
-
-                    ctx.restore();
-                    if (petState.mood === 'love') {
-                      ctx.font = '24px sans-serif';
-                      ctx.fillText('❤️', 100, 32 + Math.sin(tick * 3) * 5);
-                    } else if (petState.mood === 'thinking') {
-                      ctx.font = '20px sans-serif';
-                      ctx.fillText('💭', 145, 38 + Math.sin(tick * 4) * 4);
-                    } else if (petState.mood === 'dancing') {
-                      ctx.font = '20px sans-serif';
-                      ctx.fillText('🎵', 150, 36 + Math.cos(tick * 4) * 6);
-                    }
-
-                    petState.beatBounce *= 0.82;
-                    petState.mouthOpen *= 0.85;
-                    updatePhysics();
-                    requestAnimationFrame(renderWhaleFrame);
+                  function switchProviderTab(provider) {
+                    currentProvider = provider;
+                    document.getElementById('tab-gemini').classList.toggle('active', provider === 'gemini');
+                    document.getElementById('tab-openai').classList.toggle('active', provider === 'openai');
+                    document.getElementById('panel-gemini').style.display = provider === 'gemini' ? 'block' : 'none';
+                    document.getElementById('panel-openai').style.display = provider === 'openai' ? 'block' : 'none';
+                    saveAllConfig(false);
                   }
 
-                  const stage = document.getElementById('pet-stage');
-                  function updatePhysics() {
-                    if (!petState.dragging) {
-                      const floorY = window.innerHeight - 158;
-                      if (petState.y < floorY || Math.abs(petState.vy) > 0.5 || Math.abs(petState.vx) > 0.5) {
-                        petState.vy += 0.85;
-                        petState.x += petState.vx;
-                        petState.y += petState.vy;
-                        petState.vx *= 0.96;
-
-                        if (petState.x < 80) { petState.x = 80; petState.vx = -petState.vx * 0.6; }
-                        if (petState.x > window.innerWidth - 80) { petState.x = window.innerWidth - 80; petState.vx = -petState.vx * 0.6; }
-                        if (petState.y >= floorY) {
-                          petState.y = floorY;
-                          if (Math.abs(petState.vy) > 3) {
-                            petState.vy = -petState.vy * 0.42;
-                            petState.beatBounce = 0.6;
-                          } else {
-                            petState.vy = 0;
-                            petState.vx = 0;
-                          }
-                        }
-                      }
-                    }
-                    stage.style.left = petState.x + 'px';
-                    stage.style.top = (petState.y - 110) + 'px';
-                    stage.style.bottom = 'auto';
-                  }
-
-                  stage.addEventListener('pointerdown', e => {
-                    petState.dragging = true;
-                    petState.rubDistance = 0;
-                    petState.lastPointerX = e.clientX;
-                    petState.lastPointerY = e.clientY;
-                    petState.vx = 0; petState.vy = 0;
-                    stage.setPointerCapture(e.pointerId);
-                  });
-
-                  stage.addEventListener('pointermove', e => {
-                    if (!petState.dragging) return;
-                    const dx = e.clientX - petState.lastPointerX;
-                    const dy = e.clientY - petState.lastPointerY;
-                    const dist = Math.hypot(dx, dy);
-
-                    if (Math.abs(dy) < 18 && Math.abs(dx) < 35) {
-                      petState.rubDistance += dist;
-                      if (petState.rubDistance > 320) {
-                        petState.rubDistance = 0;
-                        intimacy += 1;
-                        localStorage.setItem('whale_intimacy', String(intimacy));
-                        document.getElementById('intimacy-count').textContent = intimacy;
-                        petState.mood = intimacy >= 6 ? 'love' : 'happy';
-                        petState.beatBounce = 0.5;
-                        showBubble(intimacy >= 6 ? '嘿嘿～最喜欢你摸我头啦 ❤️' : '呼噜噜～好舒服呀 ✨', 4000);
-                      }
-                    } else {
-                      petState.x = e.clientX;
-                      petState.y = e.clientY;
-                      petState.vx = dx * 0.65;
-                      petState.vy = dy * 0.65;
-                    }
-                    petState.lastPointerX = e.clientX;
-                    petState.lastPointerY = e.clientY;
-                  });
-
-                  stage.addEventListener('pointerup', e => {
-                    if (!petState.dragging) return;
-                    petState.dragging = false;
-                    if (Math.hypot(petState.vx, petState.vy) < 2 && petState.rubDistance < 60) {
-                      petState.beatBounce = 0.55;
-                      petState.mood = 'happy';
-                      const pokes = ['戳我干嘛呀～今天在忙什么？', '我在桌边陪着你呢！', '点一下录音按钮就可以直接跟我说话哦～'];
-                      showBubble(pokes[Math.floor(Math.random() * pokes.length)], 3500);
-                    }
-                  });
-
-                  let bubbleTimer = null;
-                  function showBubble(text, durationMs = 8000) {
-                    const el = document.getElementById('speech-bubble');
-                    el.textContent = text;
+                  function showConnectStatus(msg, isError) {
+                    const el = document.getElementById('connect-status');
                     el.style.display = 'block';
-                    clearTimeout(bubbleTimer);
-                    if (durationMs > 0) {
-                      bubbleTimer = setTimeout(() => { el.style.display = 'none'; }, durationMs);
-                    }
+                    el.style.color = isError ? '#f87171' : '#4ade80';
+                    el.textContent = msg;
                   }
 
-                  function toggleSystemAudio() {
-                    if (!window.AndroidBridge) {
-                      showBubble('当前在普通浏览器预览，安装 APK 后即可捕获手机系统声音！');
-                      return;
-                    }
-                    if (!petState.sysAudioActive) {
-                      window.AndroidBridge.startSystemAudioCapture(Boolean(config.autoVideoComment));
-                    } else {
-                      window.AndroidBridge.stopSystemAudioCapture();
-                    }
-                  }
-
-                  window.onSystemAudioStatus = function(active, msg) {
-                    petState.sysAudioActive = active;
-                    const btn = document.getElementById('btn-sys-audio');
-                    btn.classList.toggle('active', active);
-                    btn.textContent = active ? '🎧 正在听系统声' : '🎧 听系统声音';
-                    showBubble(msg, 4000);
-                    if (!active) {
-                      document.getElementById('audio-meter-fill').style.width = '0%';
-                      petState.mood = 'calm';
-                    }
-                  };
-
-                  window.onSystemAudioBeat = function(rms, isBeat) {
-                    const pct = Math.min(100, Math.round(rms * 100));
-                    document.getElementById('audio-meter-fill').style.width = pct + '%';
-                    if (rms > 0.04) {
-                      petState.mood = 'dancing';
-                      if (isBeat) petState.beatBounce = Math.min(0.85, rms * 1.1);
-                    } else if (petState.mood === 'dancing') {
-                      petState.mood = 'calm';
-                    }
-                  };
-
-                  let isTranscribingSystemAudio = false;
-                  window.onSystemAudioWav = async function(base64Wav) {
-                    if (!config.autoVideoComment || !config.apiKey || isTranscribingSystemAudio) return;
-                    isTranscribingSystemAudio = true;
+                  // 点击「🔗 连接并拉取可用模型」核心逻辑（分别支持 Google AI Studio 与第三方 OpenAI /models）
+                  async function connectAndFetchModels(provider) {
+                    showConnectStatus('⏳ 正在连接接口并拉取可用模型列表...', false);
                     try {
-                      const byteCharacters = atob(base64Wav);
-                      const byteNumbers = new Array(byteCharacters.length);
-                      for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                      }
-                      const wavBlob = new Blob([new Uint8Array(byteNumbers)], { type: 'audio/wav' });
-                      const transcript = await transcribeWavBlob(wavBlob);
-                      if (transcript && transcript.trim().length >= 4) {
-                        await askWhaleLLM(`[系统正在播放的视频/音乐声音识别内容]：「${transcript.trim()}」。请作为陪我看视频/听歌的小伙伴自然接一句话或简短吐槽。`, false);
-                      }
-                    } catch (_) {
-                    } finally {
-                      isTranscribingSystemAudio = false;
-                    }
-                  };
-
-                  function triggerVoiceInput() {
-                    if (window.AndroidBridge) {
-                      petState.mood = 'listening';
-                      showBubble('正在听你说话...', 0);
-                      window.AndroidBridge.startNativeSpeechRecognition();
-                    } else {
-                      showBubble('请在安卓 App 内点击麦克风使用语音识别');
-                    }
-                  }
-
-                  window.onNativeSpeechResult = function(text) {
-                    petState.mood = 'calm';
-                    if (text && text.trim()) {
-                      document.getElementById('chat-input').value = text.trim();
-                      sendChatMessage();
-                    }
-                  };
-
-                  window.onNativeSpeechError = function(errCode) {
-                    petState.mood = 'calm';
-                    showBubble('没听清呢，可以再点一次🎤说话或直接打字告诉我～', 3500);
-                  };
-
-                  async function transcribeWavBlob(wavBlob) {
-                    const formData = new FormData();
-                    formData.append('file', wavBlob, 'system_audio.wav');
-                    formData.append('model', config.asrModel || 'FunAudioLLM/SenseVoiceSmall');
-                    const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/audio/transcriptions`, {
-                      method: 'POST',
-                      headers: { 'Authorization': `Bearer ${config.apiKey}` },
-                      body: formData
-                    });
-                    if (!res.ok) return '';
-                    const data = await res.json();
-                    return data.text || '';
-                  }
-
-                  async function sendChatMessage() {
-                    const input = document.getElementById('chat-input');
-                    const text = input.value.trim();
-                    if (!text) return;
-                    input.value = '';
-                    await askWhaleLLM(text, true);
-                  }
-
-                  async function askWhaleLLM(userText, showUserEcho) {
-                    if (!config.apiKey) {
-                      showBubble('请先点击右上角「⚙️ 接口设置」填入你的 API Key 哦！', 6000);
-                      openSettings();
-                      return;
-                    }
-                    petState.mood = 'thinking';
-                    if (showUserEcho) showBubble('思考中...', 0);
-
-                    chatHistory.push({ role: 'user', content: userText });
-                    if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
-
-                    try {
-                      const response = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${config.apiKey}`
-                        },
-                        body: JSON.stringify({
-                          model: config.model || 'deepseek-chat',
-                          stream: true,
-                          messages: [
-                            { role: 'system', content: config.sysPrompt },
-                            ...chatHistory
-                          ]
-                        })
-                      });
-
-                      if (!response.ok) {
-                        throw new Error('HTTP ' + response.status);
-                      }
-
-                      const reader = response.body.getReader();
-                      const decoder = new TextDecoder('utf-8');
-                      let reply = '';
-
-                      while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        const chunk = decoder.decode(value, { stream: true });
-                        const lines = chunk.split('\n').filter(l => l.trim().startsWith('data:'));
-                        for (const line of lines) {
-                          const payload = line.replace(/^data:\s*/, '').trim();
-                          if (payload === '[DONE]') break;
-                          try {
-                            const parsed = JSON.parse(payload);
-                            const delta = parsed.choices?.[0]?.delta?.content || '';
-                            if (delta) {
-                              reply += delta;
-                              petState.mouthOpen = 0.9;
-                              showBubble(reply, 12000);
-                            }
-                          } catch (_) {}
+                      if (provider === 'gemini') {
+                        const key = document.getElementById('cfg-gemini-key').value.trim();
+                        const base = (document.getElementById('cfg-gemini-url').value.trim() || DEFAULT_CFG.geminiBaseUrl).replace(/\/$/, '');
+                        if (!key) {
+                          showConnectStatus('❌ 请先填写 Google AI Studio API Key', true);
+                          return;
                         }
+                        const res = await fetch(`${base}/models?pageSize=100&key=${encodeURIComponent(key)}`);
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        const data = await res.json();
+                        const models = (data.models || []).filter(m =>
+                          Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent')
+                        );
+                        if (models.length === 0) throw new Error('未找到支持对话生成的模型');
+
+                        const sel = document.getElementById('sel-gemini-models');
+                        sel.innerHTML = '';
+                        models.forEach(m => {
+                          const id = (m.name || '').replace(/^models\//, '');
+                          const opt = document.createElement('option');
+                          opt.value = id;
+                          opt.textContent = m.displayName ? `${id} (${m.displayName})` : id;
+                          sel.appendChild(opt);
+                        });
+                        const cur = document.getElementById('cfg-gemini-model').value.trim();
+                        if (models.some(m => m.name.replace(/^models\//, '') === cur)) {
+                          sel.value = cur;
+                        } else {
+                          sel.selectedIndex = 0;
+                          document.getElementById('cfg-gemini-model').value = sel.value;
+                        }
+                        localStorage.setItem('whale_v5_gemini_models', JSON.stringify(models.map(m => ({
+                          id: (m.name || '').replace(/^models\//, ''),
+                          label: m.displayName ? `${(m.name || '').replace(/^models\//, '')} (${m.displayName})` : (m.name || '').replace(/^models\//, '')
+                        }))));
+                        saveAllConfig(false);
+                        showConnectStatus(`✅ Google AI Studio 连接成功！已拉取 ${models.length} 个可用 Gemini 模型。`, false);
+                      } else {
+                        const key = document.getElementById('cfg-api-key').value.trim();
+                        const base = (document.getElementById('cfg-base-url').value.trim() || DEFAULT_CFG.baseUrl).replace(/\/$/, '');
+                        if (!key) {
+                          showConnectStatus('❌ 请先填写第三方接口 API Key', true);
+                          return;
+                        }
+                        const res = await fetch(`${base}/models`, {
+                          method: 'GET',
+                          headers: { 'Authorization': `Bearer ${key}` }
+                        });
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        const data = await res.json();
+                        const list = Array.isArray(data.data) ? data.data : (Array.isArray(data.models) ? data.models : []);
+                        if (list.length === 0) throw new Error('接口返回的模型列表为空');
+
+                        const sel = document.getElementById('sel-openai-models');
+                        sel.innerHTML = '';
+                        list.forEach(item => {
+                          const id = item.id || item.name || String(item);
+                          const opt = document.createElement('option');
+                          opt.value = id;
+                          opt.textContent = id;
+                          sel.appendChild(opt);
+                        });
+                        const cur = document.getElementById('cfg-model').value.trim();
+                        if (list.some(item => (item.id || item.name) === cur)) {
+                          sel.value = cur;
+                        } else {
+                          sel.selectedIndex = 0;
+                          document.getElementById('cfg-model').value = sel.value;
+                        }
+                        localStorage.setItem('whale_v5_openai_models', JSON.stringify(list.map(i => i.id || i.name || String(i))));
+                        saveAllConfig(false);
+                        showConnectStatus(`✅ 第三方接口连接成功！已拉取 ${list.length} 个可用模型。`, false);
                       }
-
-                      chatHistory.push({ role: 'assistant', content: reply });
-                      petState.mood = intimacy >= 6 ? 'love' : 'happy';
-                      petState.beatBounce = 0.45;
                     } catch (err) {
-                      petState.mood = 'calm';
-                      showBubble('接口请求失败 (' + err.message + ')，请检查右上角 ⚙️ 接口地址与 Key 是否正确。', 7000);
+                      showConnectStatus(`❌ 连接或拉取模型失败 (${err.message})，请检查接口地址与 Key 是否正确。`, true);
                     }
                   }
 
-                  function openSettings() {
-                    document.getElementById('cfg-base-url').value = config.baseUrl;
-                    document.getElementById('cfg-api-key').value = config.apiKey;
-                    document.getElementById('cfg-model').value = config.model;
-                    document.getElementById('cfg-asr-model').value = config.asrModel;
-                    document.getElementById('cfg-auto-video-comment').value = String(Boolean(config.autoVideoComment));
-                    document.getElementById('cfg-sys-prompt').value = config.sysPrompt;
-                    document.getElementById('settings-modal').style.display = 'flex';
-                  }
-                  function closeSettings() {
-                    document.getElementById('settings-modal').style.display = 'none';
-                  }
-                  function saveSettings() {
-                    config.baseUrl = document.getElementById('cfg-base-url').value.trim() || DEFAULT_CFG.baseUrl;
-                    config.apiKey = document.getElementById('cfg-api-key').value.trim();
-                    config.model = document.getElementById('cfg-model').value.trim() || DEFAULT_CFG.model;
-                    config.asrModel = document.getElementById('cfg-asr-model').value.trim() || DEFAULT_CFG.asrModel;
-                    config.autoVideoComment = document.getElementById('cfg-auto-video-comment').value === 'true';
-                    config.sysPrompt = document.getElementById('cfg-sys-prompt').value.trim() || DEFAULT_CFG.sysPrompt;
-                    localStorage.setItem('whale_cfg', JSON.stringify(config));
-                    if (window.AndroidBridge) {
-                      window.AndroidBridge.setAutoSliceWav(config.autoVideoComment);
-                    }
-                    closeSettings();
-                    showBubble('配置已保存！现在可以陪你聊天、听歌和看视频啦～', 4000);
+                  function restoreCachedModelLists() {
+                    try {
+                      const gList = JSON.parse(localStorage.getItem('whale_v5_gemini_models') || '[]');
+                      if (gList.length > 0) {
+                        const sel = document.getElementById('sel-gemini-models');
+                        sel.innerHTML = '';
+                        gList.forEach(m => {
+                          const opt = document.createElement('option');
+                          opt.value = m.id;
+                          opt.textContent = m.label || m.id;
+                          sel.appendChild(opt);
+                        });
+                      }
+                      const oList = JSON.parse(localStorage.getItem('whale_v5_openai_models') || '[]');
+                      if (oList.length > 0) {
+                        const sel = document.getElementById('sel-openai-models');
+                        sel.innerHTML = '';
+                        oList.forEach(id => {
+                          const opt = document.createElement('option');
+                          opt.value = id;
+                          opt.textContent = id;
+                          sel.appendChild(opt);
+                        });
+                      }
+                    } catch (_) {}
                   }
 
-                  requestAnimationFrame(renderWhaleFrame);
+                  function loadForm() {
+                    restoreCachedModelLists();
+                    let cfg = Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem('whale_v5_cfg') || '{}'));
+                    document.getElementById('cfg-gemini-key').value = cfg.geminiApiKey || '';
+                    document.getElementById('cfg-gemini-url').value = cfg.geminiBaseUrl || DEFAULT_CFG.geminiBaseUrl;
+                    document.getElementById('cfg-gemini-model').value = cfg.geminiModel || DEFAULT_CFG.geminiModel;
+                    document.getElementById('sel-gemini-models').value = cfg.geminiModel || DEFAULT_CFG.geminiModel;
+
+                    document.getElementById('cfg-base-url').value = cfg.baseUrl || DEFAULT_CFG.baseUrl;
+                    document.getElementById('cfg-api-key').value = cfg.apiKey || '';
+                    document.getElementById('cfg-model').value = cfg.model || DEFAULT_CFG.model;
+                    document.getElementById('sel-openai-models').value = cfg.model || DEFAULT_CFG.model;
+                    document.getElementById('cfg-asr-model').value = cfg.asrModel || DEFAULT_CFG.asrModel;
+
+                    document.getElementById('cfg-size').value = cfg.petSizeDp;
+                    document.getElementById('lbl-size').textContent = cfg.petSizeDp + ' dp';
+                    document.getElementById('cfg-font').value = String(cfg.fontScale);
+                    document.getElementById('cfg-scheme').value = cfg.colorScheme;
+                    document.getElementById('cfg-city').value = cfg.cityFallback;
+                    document.getElementById('cfg-auto-video').value = String(Boolean(cfg.autoVideoComment));
+                    document.getElementById('cfg-sys-prompt').value = cfg.sysPrompt;
+
+                    switchProviderTab(cfg.apiProvider || 'gemini');
+                  }
+
+                  function saveAllConfig(showAlert) {
+                    const cfg = {
+                      apiProvider: currentProvider,
+                      geminiBaseUrl: document.getElementById('cfg-gemini-url').value.trim() || DEFAULT_CFG.geminiBaseUrl,
+                      geminiApiKey: document.getElementById('cfg-gemini-key').value.trim(),
+                      geminiModel: document.getElementById('cfg-gemini-model').value.trim() || DEFAULT_CFG.geminiModel,
+                      baseUrl: document.getElementById('cfg-base-url').value.trim() || DEFAULT_CFG.baseUrl,
+                      apiKey: document.getElementById('cfg-api-key').value.trim(),
+                      model: document.getElementById('cfg-model').value.trim() || DEFAULT_CFG.model,
+                      asrModel: document.getElementById('cfg-asr-model').value.trim() || DEFAULT_CFG.asrModel,
+                      petSizeDp: parseInt(document.getElementById('cfg-size').value, 10) || 145,
+                      fontScale: parseInt(document.getElementById('cfg-font').value, 10) || 100,
+                      colorScheme: document.getElementById('cfg-scheme').value,
+                      cityFallback: document.getElementById('cfg-city').value.trim() || 'Shanghai',
+                      autoVideoComment: document.getElementById('cfg-auto-video').value === 'true',
+                      sysPrompt: document.getElementById('cfg-sys-prompt').value.trim() || DEFAULT_CFG.sysPrompt
+                    };
+                    localStorage.setItem('whale_v5_cfg', JSON.stringify(cfg));
+                    if (window.MainBridge) {
+                      window.MainBridge.notifyConfigSaved();
+                    }
+                    if (showAlert) {
+                      alert('设置已保存并实时同步给全局悬浮大肥鱼！');
+                    }
+                  }
+
+                  function toggleSysAudio() {
+                    if (window.MainBridge) {
+                      const autoVideo = document.getElementById('cfg-auto-video').value === 'true';
+                      window.MainBridge.toggleSystemAudioCapture(autoVideo);
+                    }
+                  }
+
+                  window.refreshDashboard = function() {
+                    if (!window.MainBridge) return;
+                    const running = window.MainBridge.isOverlayRunning();
+                    const canDraw = window.MainBridge.canDrawOverlays();
+                    const badge = document.getElementById('overlay-badge');
+                    const btn = document.getElementById('btn-toggle-overlay');
+
+                    if (running) {
+                      badge.textContent = '● 悬浮窗运行中';
+                      badge.style.color = '#4ade80';
+                      btn.textContent = '关闭全局悬浮桌宠';
+                    } else if (!canDraw) {
+                      badge.textContent = '○ 需授予悬浮窗权限';
+                      badge.style.color = '#facc15';
+                      btn.textContent = '点击授予悬浮窗权限并启动大肥鱼';
+                    } else {
+                      badge.textContent = '○ 未启动';
+                      badge.style.color = '#94a3b8';
+                      btn.textContent = '启动全局悬浮桌宠（跨应用显示）';
+                    }
+
+                    try {
+                      const st = JSON.parse(window.MainBridge.getDeviceStatusJson() || '{}');
+                      document.getElementById('st-battery').textContent = `${st.batteryPct ?? '--'}% (${st.isCharging ? '⚡充电中' : '未充电'} · ${st.batteryTempC ?? '--'}°C)`;
+                      document.getElementById('st-alarm').textContent = st.nextAlarm || '未设置';
+                      document.getElementById('st-calls-sms').textContent = st.notificationAccess
+                        ? `${st.missedCalls || 0} 个未接 / ${st.unreadSms || 0} 条短信`
+                        : '点上方按钮开启通知监听';
+                      document.getElementById('st-social').textContent = st.notificationAccess
+                        ? `${st.unreadSocial || 0} 条未读消息`
+                        : '未授权通知监听';
+                      document.getElementById('st-song').textContent = st.currentSong || '暂无音乐播放';
+                    } catch (_) {}
+                  };
+
+                  loadForm();
+                  refreshDashboard();
+                  setInterval(refreshDashboard, 4000);
                 </script>
               </body>
               </html>
               """).lstrip())
-          print("Android project generated successfully.")
+          print("WhaleCompanion v5.1 (Gemini + OpenAI Dual Engine) generated successfully.")
           PY
 
       - name: 6. 安装匹配的 Gradle 8.5 环境
@@ -1188,6 +2404,6 @@ jobs:
       - name: 8. 上传编译好的安卓 APK 安装包
         uses: actions/upload-artifact@v4
         with:
-          name: DeepSeek-Whale-Android-APK
+          name: DeepSeek-Whale-Android-APK-v5
           path: /tmp/whale-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
