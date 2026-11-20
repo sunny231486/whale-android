@@ -1,23 +1,21 @@
 # ==============================================================================
-# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓全局悬浮伴侣版 · v7 自定义贴图与精准状态版
+# 🐟 DeepSeek 大肥鱼（dsh-coopanion）安卓全局 AI 助理版 · v8
 # ==============================================================================
-# ✨ v7 针对实机反馈的 4 项专项修复与升级：
-# 1. 【思考/生成时点击 ✕ 立即中断生成 (AbortController)】：
-#    - 思考或流式输出期间，右侧按钮自动变为醒目的「✕ 停止」，点击瞬间调用 AbortController.abort()
-#      切断网络流、停止读秒并保留已生成内容；再点一次 ✕ 则收起面板。
-# 2. 【新增充电到 80% 与用电到 40% 实时探头提醒】：
-#    - 监听原生 ACTION_BATTERY_CHANGED 广播：充电达到 80% 时自动探头提醒养护电池；
-#      日常放电用到 40%（以及 20%）时自动探头提醒留意电量，带防重复触发状态锁。
-# 3. 【彻底修复闹钟始终显示 00:00 的 Bug】：
-#    - 原因：vivo/小米等系统后台计步器（如 vivo 健康）会注册午夜 00:00 的伪 AlarmClock 唤醒。
-#    - 修复：优先读取系统时钟写入的 NEXT_ALARM_FORMATTED，并对 getNextAlarmClock() 校验创建者包名
-#      （仅采纳系统时钟 com.android.BBKClock / deskclock / alarm 等真实闹钟，剔除 00:00 计步器伪闹钟）。
-# 4. 【支持自定义角色贴图（从手机相册自由更换任意角色 PNG / GIF 动图 / WebP）】：
-#    - 在主控制台新增「🖼️ 从相册更换角色贴图」与「🗣️ 更换说话张嘴差分贴图（可选）」，
-#      支持静态透明 PNG（自动赋予呼吸与跳跃动画）和 GIF/WebP 动图，并可随时一键恢复默认大肥鱼。
+# ✨ v8 在 v7-fixed 基础上新增与修复：
+# 1. 【音乐白名单自由配置 + 防抖冷却】：默认仅监听 com.salt.music（Salt Player），支持自由增删包名，
+#    严格校验 PLAYING 状态 + 3秒防抖 + 可调冷却时间（默认120秒），彻底杜绝多软件同时播放触发刷屏请求。
+# 2. 【通知权限持久化检测 + 自动静默重连】：改用系统 enabled_notification_listeners 真实状态校验，
+#    若已授权但被 HyperOS 休眠解绑，自动调用 NotificationListenerService.requestRebind() 静默拉起。
+# 3. 【原生文件导入/导出预设（SAF 存储访问框架）】：彻底替代失效的 prompt()，直接调起系统文件管理器
+#    保存/读取 .json 预设文件（兼容 Android 10~15 / HyperOS），并附带可视化复制/粘贴弹窗备份。
+# 4. 【Common Intents + Shizuku 双引擎动手能力】：AI 回复中可自动执行切歌/暂停(MediaController)、
+#    设闹钟/倒计时(AlarmClock)、打开任意已安装 App、网页搜索、复制文本、调音量、Shizuku 调亮度等。
+# 5. 【一键看屏互动（多模态识屏）】：面板新增「👁️ 看屏」按钮，Shizuku 已授权时毫秒级无弹窗静默截屏，
+#    未开启 Shizuku 时自动回退为系统单次 MediaProjection 截屏，直传 Gemini / OpenAI 视觉接口。
+# 6. 【长期记忆本 + 历史对话面板】：支持手动/AI自动写入长期记忆并持久注入上下文，浮窗内置可滚动历史记录抽屉。
 # ==============================================================================
 
-name: Build DeepSeek Whale Android APK v7
+name: Build DeepSeek Whale Android APK v8
 
 on:
   push:
@@ -81,7 +79,7 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
 
-      - name: 5. 生成 v7 安卓工程（停止生成 + 80%/40%电量提醒 + 真实闹钟过滤 + 自定义角色贴图）
+      - name: 5. 生成 v8 安卓工程（白名单识曲 + 通知自动重连 + Shizuku + Common Intents + 看屏 + 记忆/历史 + SAF 导入导出）
         run: |
           python3 - << 'PY'
           import os, textwrap
@@ -96,7 +94,7 @@ jobs:
 
           # 1. Gradle 配置
           with open(os.path.join(base, 'settings.gradle'), 'w', encoding='utf-8') as f:
-              f.write("rootProject.name = 'WhaleCompanionV7'\ninclude ':app'\n")
+              f.write("rootProject.name = 'WhaleCompanionV8'\ninclude ':app'\n")
 
           with open(os.path.join(base, 'build.gradle'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
@@ -132,8 +130,8 @@ jobs:
                       applicationId "com.takboo.whalecompanion"
                       minSdk 29
                       targetSdk 34
-                      versionCode 7
-                      versionName "7.0.0-custom-sprite-alarm-fix"
+                      versionCode 8
+                      versionName "8.0.0-global-ai-assistant"
                   }
                   buildTypes {
                       debug {
@@ -152,6 +150,8 @@ jobs:
                   implementation 'androidx.appcompat:appcompat:1.6.1'
                   implementation 'androidx.core:core:1.12.0'
                   implementation 'androidx.webkit:webkit:1.9.0'
+                  implementation 'dev.rikka.shizuku:api:13.1.5'
+                  implementation 'dev.rikka.shizuku:provider:13.1.5'
               }
               """).lstrip())
 
@@ -169,14 +169,23 @@ jobs:
                   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
                   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
                   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+                  <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+                  <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+                  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+                  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
                   <queries>
                       <package android:name="com.salt.music" />
+                      <package android:name="moe.shizuku.privileged.api" />
                       <intent>
                           <action android:name="android.media.browse.MediaBrowserService" />
                       </intent>
                       <intent>
                           <action android:name="android.intent.action.SHOW_ALARMS" />
+                      </intent>
+                      <intent>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent>
                   </queries>
 
@@ -185,6 +194,14 @@ jobs:
                       android:label="大肥鱼全局伴侣"
                       android:usesCleartextTraffic="true"
                       android:theme="@style/Theme.AppCompat.NoActionBar">
+
+                      <provider
+                          android:name="rikka.shizuku.ShizukuProvider"
+                          android:authorities="${applicationId}.shizuku"
+                          android:multiprocess="false"
+                          android:enabled="true"
+                          android:exported="true"
+                          android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
                       <activity
                           android:name=".MainActivity"
@@ -196,6 +213,12 @@ jobs:
                               <category android:name="android.intent.category.LAUNCHER" />
                           </intent-filter>
                       </activity>
+
+                      <activity
+                          android:name=".ScreenCaptureActivity"
+                          android:exported="false"
+                          android:excludeFromRecents="true"
+                          android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
                       <service
                           android:name=".FloatingOverlayService"
@@ -226,7 +249,129 @@ jobs:
               </manifest>
               """).lstrip())
 
-          # 3. WhaleNotificationListener.java (保持 Salt Player 椒盐音乐与全局媒体会话三通道识曲)
+          # 3. ShizukuHelper.java (Shizuku 检测、授权、静默截屏与系统控制)
+          with open(os.path.join(java_dir, 'ShizukuHelper.java'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""
+              package com.takboo.whalecompanion;
+
+              import android.content.Context;
+              import android.content.pm.PackageManager;
+              import android.graphics.Bitmap;
+              import android.graphics.BitmapFactory;
+              import android.util.Base64;
+              import java.io.ByteArrayOutputStream;
+              import java.io.InputStream;
+              import java.lang.reflect.Method;
+              import rikka.shizuku.Shizuku;
+
+              public class ShizukuHelper {
+                  public static final int REQ_SHIZUKU_PERMISSION = 3001;
+
+                  public static boolean isAvailable() {
+                      try {
+                          return Shizuku.pingBinder();
+                      } catch (Throwable ignored) {
+                          return false;
+                      }
+                  }
+
+                  public static boolean hasPermission() {
+                      try {
+                          if (!Shizuku.pingBinder()) return false;
+                          if (Shizuku.isPreV11()) return false;
+                          return Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+                      } catch (Throwable ignored) {
+                          return false;
+                      }
+                  }
+
+                  public static String getStatusText() {
+                      if (!isAvailable()) return "未运行（请先在 Shizuku App 中启动服务）";
+                      if (hasPermission()) return "已授权并就绪（支持免弹窗静默截屏与系统控制）";
+                      return "服务运行中，等待点击授权";
+                  }
+
+                  public static boolean requestPermission() {
+                      try {
+                          if (!Shizuku.pingBinder()) return false;
+                          if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) return true;
+                          Shizuku.requestPermission(REQ_SHIZUKU_PERMISSION);
+                          return true;
+                      } catch (Throwable ignored) {
+                          return false;
+                      }
+                  }
+
+                  private static Process startShizukuProcess(String[] cmd) throws Exception {
+                      Method m = Shizuku.class.getDeclaredMethod("newProcess", String[].class, String[].class, String.class);
+                      m.setAccessible(true);
+                      return (Process) m.invoke(null, cmd, null, null);
+                  }
+
+                  public static byte[] execShellBytes(String[] cmd) {
+                      if (!hasPermission()) return null;
+                      Process proc = null;
+                      try {
+                          proc = startShizukuProcess(cmd);
+                          if (proc == null) return null;
+                          InputStream is = proc.getInputStream();
+                          ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                          byte[] buf = new byte[16384];
+                          int len;
+                          while ((len = is.read(buf)) > 0) {
+                              baos.write(buf, 0, len);
+                          }
+                          proc.waitFor();
+                          return baos.toByteArray();
+                      } catch (Throwable ignored) {
+                          return null;
+                      } finally {
+                          if (proc != null) {
+                              try { proc.destroy(); } catch (Throwable ignored) {}
+                          }
+                      }
+                  }
+
+                  public static String execShellText(String command) {
+                      byte[] out = execShellBytes(new String[]{"sh", "-c", command});
+                      if (out == null) return null;
+                      return new String(out).trim();
+                  }
+
+                  public static String captureScreenBase64(Context ctx) {
+                      if (!hasPermission()) return null;
+                      try {
+                          byte[] pngBytes = execShellBytes(new String[]{"screencap", "-p"});
+                          if (pngBytes == null || pngBytes.length < 1024) return null;
+                          Bitmap bmp = BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.length);
+                          if (bmp == null) return null;
+                          return encodeBitmapToJpegBase64(bmp, 960, 74);
+                      } catch (Throwable ignored) {
+                          return null;
+                      }
+                  }
+
+                  public static String encodeBitmapToJpegBase64(Bitmap bmp, int maxWidth, int quality) {
+                      if (bmp == null) return null;
+                      try {
+                          Bitmap target = bmp;
+                          if (bmp.getWidth() > maxWidth) {
+                              int newH = Math.round((float) bmp.getHeight() * maxWidth / bmp.getWidth());
+                              target = Bitmap.createScaledBitmap(bmp, maxWidth, newH, true);
+                          }
+                          ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                          target.compress(Bitmap.CompressFormat.JPEG, quality, baos);
+                          if (target != bmp) target.recycle();
+                          bmp.recycle();
+                          return Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+                      } catch (Throwable ignored) {
+                          return null;
+                      }
+                  }
+              }
+              """).lstrip())
+
+          # 4. WhaleNotificationListener.java (严格白名单音乐识曲 + PLAYING 校验 + 防抖 + MediaController 播放控制)
           with open(os.path.join(java_dir, 'WhaleNotificationListener.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
@@ -237,6 +382,7 @@ jobs:
               import android.content.Context;
               import android.content.Intent;
               import android.content.IntentFilter;
+              import android.content.SharedPreferences;
               import android.media.MediaMetadata;
               import android.media.session.MediaController;
               import android.media.session.MediaSession;
@@ -244,13 +390,17 @@ jobs:
               import android.media.session.PlaybackState;
               import android.os.Build;
               import android.os.Bundle;
+              import android.os.Handler;
+              import android.os.Looper;
               import android.service.notification.NotificationListenerService;
               import android.service.notification.StatusBarNotification;
               import java.util.ArrayList;
+              import java.util.Arrays;
               import java.util.List;
 
               public class WhaleNotificationListener extends NotificationListenerService {
                   public static volatile boolean isConnected = false;
+                  public static volatile WhaleNotificationListener instance = null;
                   public static volatile int missedCallCount = 0;
                   public static volatile int unreadSmsCount = 0;
                   public static volatile int unreadSocialCount = 0;
@@ -258,9 +408,67 @@ jobs:
                   public static volatile String currentSongArtist = "";
                   public static volatile String currentMusicApp = "";
                   private static String lastNotifiedSong = "";
+                  private static long lastSongNotifyTimeMs = 0L;
 
                   private MediaSessionManager mediaSessionManager;
                   private final List<MediaController> registeredControllers = new ArrayList<>();
+                  private final Handler debounceHandler = new Handler(Looper.getMainLooper());
+                  private Runnable pendingSongRunnable = null;
+
+                  public static List<String> getMusicWhitelist(Context ctx) {
+                      SharedPreferences sp = ctx.getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
+                      String raw = sp.getString("musicWhitelist", "com.salt.music");
+                      List<String> list = new ArrayList<>();
+                      if (raw != null) {
+                          String[] parts = raw.split("[,;\\s\\n]+");
+                          for (String p : parts) {
+                              String t = p.trim().toLowerCase();
+                              if (!t.isEmpty()) list.add(t);
+                          }
+                      }
+                      if (list.isEmpty()) list.add("com.salt.music");
+                      return list;
+                  }
+
+                  public static boolean isPackageWhitelisted(Context ctx, String pkg) {
+                      if (pkg == null || pkg.trim().isEmpty()) return false;
+                      String low = pkg.trim().toLowerCase();
+                      for (String allowed : getMusicWhitelist(ctx)) {
+                          if (low.equals(allowed) || low.contains(allowed)) {
+                              return true;
+                          }
+                      }
+                      return false;
+                  }
+
+                  public static int getSongCooldownSec(Context ctx) {
+                      SharedPreferences sp = ctx.getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
+                      return Math.max(10, sp.getInt("songCooldownSec", 120));
+                  }
+
+                  public static boolean controlMediaPlayback(Context ctx, String action) {
+                      try {
+                          MediaSessionManager msm = (MediaSessionManager) ctx.getSystemService(Context.MEDIA_SESSION_SERVICE);
+                          if (msm == null) return false;
+                          ComponentName cn = new ComponentName(ctx, WhaleNotificationListener.class);
+                          List<MediaController> list = msm.getActiveSessions(cn);
+                          if (list == null || list.isEmpty()) return false;
+                          MediaController target = null;
+                          for (MediaController mc : list) {
+                              if (isPackageWhitelisted(ctx, mc.getPackageName())) {
+                                  target = mc;
+                                  break;
+                              }
+                          }
+                          if (target == null) target = list.get(0);
+                          MediaController.TransportControls tc = target.getTransportControls();
+                          if ("next".equals(action)) { tc.skipToNext(); return true; }
+                          if ("prev".equals(action)) { tc.skipToPrevious(); return true; }
+                          if ("pause".equals(action)) { tc.pause(); return true; }
+                          if ("play".equals(action)) { tc.play(); return true; }
+                      } catch (Exception ignored) {}
+                      return false;
+                  }
 
                   private final MediaSessionManager.OnActiveSessionsChangedListener sessionsChangedListener = controllers -> {
                       bindMediaControllers(controllers);
@@ -271,12 +479,17 @@ jobs:
                       @Override
                       public void onReceive(Context context, Intent intent) {
                           if (intent == null) return;
+                          // 仅当 Salt Player 在白名单中时响应其专属切歌广播，避免其他软件的通用广播误触发
+                          if (!isPackageWhitelisted(context, "com.salt.music")) return;
+                          String act = intent.getAction();
+                          if (!"com.salt.music.metachanged".equals(act)) return;
+                          boolean playing = intent.getBooleanExtra("playing", true);
+                          if (!playing) return;
                           String track = intent.getStringExtra("track");
                           String artist = intent.getStringExtra("artist");
                           if (track != null && !track.trim().isEmpty()) {
-                              updateSongState(track.trim(), artist != null ? artist.trim() : "", "broadcast");
+                              updateSongState(track.trim(), artist != null ? artist.trim() : "", "com.salt.music");
                           }
-                          refreshActiveNotifications();
                       }
                   };
 
@@ -284,6 +497,7 @@ jobs:
                   public void onListenerConnected() {
                       super.onListenerConnected();
                       isConnected = true;
+                      instance = this;
                       try {
                           mediaSessionManager = (MediaSessionManager) getSystemService(Context.MEDIA_SESSION_SERVICE);
                           if (mediaSessionManager != null) {
@@ -295,8 +509,6 @@ jobs:
 
                       try {
                           IntentFilter mf = new IntentFilter();
-                          mf.addAction("com.android.music.metachanged");
-                          mf.addAction("com.android.music.playstatechanged");
                           mf.addAction("com.salt.music.metachanged");
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                               registerReceiver(mediaBroadcastReceiver, mf, Context.RECEIVER_EXPORTED);
@@ -312,6 +524,7 @@ jobs:
                   public void onListenerDisconnected() {
                       super.onListenerDisconnected();
                       isConnected = false;
+                      instance = null;
                       try {
                           if (mediaSessionManager != null) {
                               mediaSessionManager.removeOnActiveSessionsChangedListener(sessionsChangedListener);
@@ -324,6 +537,7 @@ jobs:
                       if (controllers == null) return;
                       registeredControllers.clear();
                       for (final MediaController mc : controllers) {
+                          if (!isPackageWhitelisted(this, mc.getPackageName())) continue;
                           registeredControllers.add(mc);
                           readFromMediaController(mc);
                           try {
@@ -345,8 +559,12 @@ jobs:
                       if (mc == null) return false;
                       try {
                           String pkg = mc.getPackageName() != null ? mc.getPackageName() : "";
+                          if (!isPackageWhitelisted(this, pkg)) return false;
+
                           PlaybackState ps = mc.getPlaybackState();
-                          boolean isPlaying = ps != null && (ps.getState() == PlaybackState.STATE_PLAYING || ps.getState() == PlaybackState.STATE_BUFFERING);
+                          boolean isPlaying = ps != null && ps.getState() == PlaybackState.STATE_PLAYING;
+                          if (!isPlaying) return false;
+
                           MediaMetadata meta = mc.getMetadata();
                           if (meta != null) {
                               String title = meta.getString(MediaMetadata.METADATA_KEY_TITLE);
@@ -361,10 +579,8 @@ jobs:
                                   artist = meta.getString(MediaMetadata.METADATA_KEY_ALBUM);
                               }
                               if (title != null && !title.trim().isEmpty()) {
-                                  if (isPlaying || pkg.contains("com.salt.music") || currentSongTitle.isEmpty()) {
-                                      updateSongState(title.trim(), artist != null ? artist.trim() : "", pkg);
-                                      return true;
-                                  }
+                                  updateSongState(title.trim(), artist != null ? artist.trim() : "", pkg);
+                                  return true;
                               }
                           }
                       } catch (Exception ignored) {}
@@ -373,16 +589,29 @@ jobs:
 
                   private synchronized void updateSongState(String title, String artist, String pkg) {
                       if (title == null || title.isEmpty()) return;
+                      if (!isPackageWhitelisted(this, pkg)) return;
                       currentSongTitle = title;
                       currentSongArtist = artist != null ? artist : "";
                       currentMusicApp = pkg != null ? pkg : "";
-                      String fullSong = currentSongTitle + (currentSongArtist.isEmpty() ? "" : " - " + currentSongArtist);
-                      if (!fullSong.equals(lastNotifiedSong)) {
+                      final String fullSong = currentSongTitle + (currentSongArtist.isEmpty() ? "" : " - " + currentSongArtist);
+                      if (fullSong.equals(lastNotifiedSong)) return;
+
+                      // 3 秒防抖：确保连续切歌时只触发最终停留的那一首，且遵守冷却时间
+                      if (pendingSongRunnable != null) {
+                          debounceHandler.removeCallbacks(pendingSongRunnable);
+                      }
+                      pendingSongRunnable = () -> {
+                          long now = System.currentTimeMillis();
+                          long cooldownMs = getSongCooldownSec(WhaleNotificationListener.this) * 1000L;
+                          if (fullSong.equals(lastNotifiedSong)) return;
                           lastNotifiedSong = fullSong;
+                          if (now - lastSongNotifyTimeMs < cooldownMs) return;
+                          lastSongNotifyTimeMs = now;
                           if (FloatingOverlayService.instance != null) {
                               FloatingOverlayService.instance.notifySongChanged(fullSong);
                           }
-                      }
+                      };
+                      debounceHandler.postDelayed(pendingSongRunnable, 3000);
                   }
 
                   @Override
@@ -401,12 +630,16 @@ jobs:
 
                   public void refreshActiveNotifications() {
                       try {
+                          boolean foundWhitelistedPlaying = false;
                           if (mediaSessionManager != null) {
                               ComponentName cn = new ComponentName(this, WhaleNotificationListener.class);
                               List<MediaController> activeList = mediaSessionManager.getActiveSessions(cn);
                               if (activeList != null) {
                                   for (MediaController mc : activeList) {
-                                      if (readFromMediaController(mc)) break;
+                                      if (readFromMediaController(mc)) {
+                                          foundWhitelistedPlaying = true;
+                                          break;
+                                      }
                                   }
                               }
                           }
@@ -430,25 +663,18 @@ jobs:
                               String subText = extras != null && extras.getCharSequence(Notification.EXTRA_SUB_TEXT) != null
                                       ? extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString().trim() : "";
 
-                              boolean isMusicPkg = pkg.contains("com.salt.music") || pkg.contains("salt")
-                                      || pkg.contains("music") || pkg.contains("spotify")
-                                      || pkg.contains("netease") || pkg.contains("kugou")
-                                      || pkg.contains("kuwo") || pkg.contains("qqmusic")
-                                      || pkg.contains("apple.android.music") || pkg.contains("foobar")
-                                      || pkg.contains("poweramp") || pkg.contains("player");
-
-                              if (extras != null && (extras.containsKey(Notification.EXTRA_MEDIA_SESSION) || "transport".equals(cat) || isMusicPkg)) {
+                              // 严格限制：仅白名单内的播放器通知才解析为歌曲，彻底忽略 B站/抖音/系统视频等其他媒体
+                              if (!foundWhitelistedPlaying && isPackageWhitelisted(this, pkg) && extras != null) {
                                   try {
                                       MediaSession.Token token = extras.getParcelable(Notification.EXTRA_MEDIA_SESSION);
                                       if (token != null) {
-           	                              MediaController mc = new MediaController(this, token);
-                                          if (readFromMediaController(mc)) continue;
+                                          MediaController mc = new MediaController(this, token);
+                                          if (readFromMediaController(mc)) {
+                                              foundWhitelistedPlaying = true;
+                                              continue;
+                                          }
                                       }
                                   } catch (Exception ignored) {}
-
-                                  if (!title.isEmpty() && !title.equals("Salt Player") && !title.equals("椒盐音乐")) {
-                                      updateSongState(title, !text.isEmpty() ? text : subText, pkg);
-                                  }
                                   continue;
                               }
 
@@ -468,7 +694,7 @@ jobs:
               }
               """).lstrip())
 
-          # 4. DeviceContextHelper.java (核心修复 #3：彻底解决 vivo/国产系统后台计步器伪造 00:00 闹钟的问题)
+          # 5. DeviceContextHelper.java (真实通知权限检测 + requestRebind 自动重连 + 真实闹钟过滤 + Shizuku 状态)
           with open(os.path.join(java_dir, 'DeviceContextHelper.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
@@ -476,6 +702,7 @@ jobs:
               import android.Manifest;
               import android.app.AlarmManager;
               import android.app.PendingIntent;
+              import android.content.ComponentName;
               import android.content.Context;
               import android.content.Intent;
               import android.content.IntentFilter;
@@ -483,7 +710,9 @@ jobs:
               import android.location.Location;
               import android.location.LocationManager;
               import android.os.BatteryManager;
+              import android.os.Build;
               import android.provider.Settings;
+              import android.service.notification.NotificationListenerService;
               import androidx.core.content.ContextCompat;
               import org.json.JSONObject;
               import java.text.SimpleDateFormat;
@@ -494,10 +723,30 @@ jobs:
 
               public class DeviceContextHelper {
 
-                  // 精准获取真实用户闹钟（过滤 vivo 健康、微信计步器等注册的午夜 00:00 伪闹钟）
+                  public static boolean isNotificationListenerEnabled(Context ctx) {
+                      try {
+                          String flat = Settings.Secure.getString(ctx.getContentResolver(), "enabled_notification_listeners");
+                          if (flat == null || flat.isEmpty()) return false;
+                          return flat.contains(ctx.getPackageName());
+                      } catch (Exception ignored) {
+                          return false;
+                      }
+                  }
+
+                  public static void ensureNotificationListenerBound(Context ctx) {
+                      try {
+                          if (isNotificationListenerEnabled(ctx) && !WhaleNotificationListener.isConnected) {
+                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                  NotificationListenerService.requestRebind(
+                                          new ComponentName(ctx, WhaleNotificationListener.class)
+                                  );
+                              }
+                          }
+                      } catch (Exception ignored) {}
+                  }
+
                   public static String resolveRealNextAlarm(Context ctx) {
                       try {
-                          // 通道 A：先读系统时钟写入的 NEXT_ALARM_FORMATTED（vivo BBKClock / 原生 DeskClock 标准字段）
                           String sysFormatted = Settings.System.getString(ctx.getContentResolver(), Settings.System.NEXT_ALARM_FORMATTED);
                           if (sysFormatted != null) {
                               sysFormatted = sysFormatted.trim();
@@ -513,7 +762,6 @@ jobs:
                               }
                           }
 
-                          // 通道 B：检查 AlarmManager.getNextAlarmClock() 并校验创建者包名与时间特征
                           AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
                           if (am != null && am.getNextAlarmClock() != null) {
                               AlarmManager.AlarmClockInfo info = am.getNextAlarmClock();
@@ -528,14 +776,13 @@ jobs:
                               int minute = cal.get(Calendar.MINUTE);
                               int second = cal.get(Calendar.SECOND);
 
-                              // 判断是否来自真正的系统时钟/闹钟 App（如 vivo 的 com.android.bbkclock、原生 deskclock 等）
                               boolean isRealClockApp = creatorPkg.contains("clock")
                                       || creatorPkg.contains("alarm")
                                       || creatorPkg.contains("bbk")
+                                      || creatorPkg.contains("miui")
                                       || creatorPkg.contains("time")
                                       || creatorPkg.contains("calendar");
 
-                              // 判断是否是健康/计步/社交后台注册的午夜 00:00 定时任务
                               boolean isFakeMidnightReset = (hour == 0 && minute == 0) && (!isRealClockApp || second != 0);
 
                               if (!isFakeMidnightReset && (isRealClockApp || !(hour == 0 && minute == 0))) {
@@ -543,22 +790,12 @@ jobs:
                                   return alarmFmt.format(new Date(triggerMs));
                               }
                           }
-
-                          // 如果用户在时钟里确实设置了一个整点 00:00 的真实闹钟且 NEXT_ALARM_FORMATTED 有值
-                          if (sysFormatted != null && !sysFormatted.isEmpty()) {
-                              AlarmManager am2 = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
-                              if (am2 != null && am2.getNextAlarmClock() != null && am2.getNextAlarmClock().getShowIntent() != null) {
-                                  String pkg = am2.getNextAlarmClock().getShowIntent().getCreatorPackage();
-                                  if (pkg != null && (pkg.toLowerCase().contains("clock") || pkg.toLowerCase().contains("alarm"))) {
-                                      return sysFormatted;
-                                  }
-                              }
-                          }
                       } catch (Exception ignored) {}
                       return "未设置";
                   }
 
                   public static String getDeviceStatusJson(Context ctx) {
+                      ensureNotificationListenerBound(ctx);
                       JSONObject obj = new JSONObject();
                       try {
                           SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd EEEE HH:mm", Locale.CHINA);
@@ -580,7 +817,13 @@ jobs:
 
                           obj.put("nextAlarm", resolveRealNextAlarm(ctx));
 
+                          boolean notifGranted = isNotificationListenerEnabled(ctx);
+                          obj.put("notificationGranted", notifGranted);
                           obj.put("notificationAccess", WhaleNotificationListener.isConnected);
+                          obj.put("shizukuAvailable", ShizukuHelper.isAvailable());
+                          obj.put("shizukuGranted", ShizukuHelper.hasPermission());
+                          obj.put("shizukuStatus", ShizukuHelper.getStatusText());
+
                           obj.put("missedCalls", WhaleNotificationListener.missedCallCount);
                           obj.put("unreadSms", WhaleNotificationListener.unreadSmsCount);
                           obj.put("unreadSocial", WhaleNotificationListener.unreadSocialCount);
@@ -614,7 +857,293 @@ jobs:
               }
               """).lstrip())
 
-          # 5. SystemAudioCaptureService.java
+          # 6. AssistantActionHelper.java (Common Intents + MediaController + Shizuku 动手执行引擎)
+          with open(os.path.join(java_dir, 'AssistantActionHelper.java'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""
+              package com.takboo.whalecompanion;
+
+              import android.app.SearchManager;
+              import android.content.ClipData;
+              import android.content.ClipboardManager;
+              import android.content.Context;
+              import android.content.Intent;
+              import android.content.pm.ApplicationInfo;
+              import android.content.pm.PackageManager;
+              import android.media.AudioManager;
+              import android.net.Uri;
+              import android.provider.AlarmClock;
+              import android.view.KeyEvent;
+              import java.util.List;
+
+              public class AssistantActionHelper {
+
+                  public static String executeAction(Context ctx, String actionType, String arg1, String arg2) {
+                      if (actionType == null) return "未知指令";
+                      String act = actionType.trim().toLowerCase();
+                      String a1 = arg1 != null ? arg1.trim() : "";
+                      String a2 = arg2 != null ? arg2.trim() : "";
+
+                      try {
+                          switch (act) {
+                              case "music_next":
+                                  if (WhaleNotificationListener.controlMediaPlayback(ctx, "next")) return "已切到下一首";
+                                  sendMediaKey(ctx, KeyEvent.KEYCODE_MEDIA_NEXT);
+                                  return "已发送下一首指令";
+                              case "music_prev":
+                                  if (WhaleNotificationListener.controlMediaPlayback(ctx, "prev")) return "已切回上一首";
+                                  sendMediaKey(ctx, KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+                                  return "已发送上一首指令";
+                              case "music_pause":
+                                  if (WhaleNotificationListener.controlMediaPlayback(ctx, "pause")) return "已暂停播放";
+                                  sendMediaKey(ctx, KeyEvent.KEYCODE_MEDIA_PAUSE);
+                                  return "已发送暂停指令";
+                              case "music_play":
+                                  if (WhaleNotificationListener.controlMediaPlayback(ctx, "play")) return "已继续播放";
+                                  sendMediaKey(ctx, KeyEvent.KEYCODE_MEDIA_PLAY);
+                                  return "已发送播放指令";
+
+                              case "set_alarm": {
+                                  String[] hm = a1.replace("：", ":").split(":");
+                                  int hour = Integer.parseInt(hm[0].trim());
+                                  int minute = hm.length > 1 ? Integer.parseInt(hm[1].trim()) : 0;
+                                  Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
+                                  intent.putExtra(AlarmClock.EXTRA_HOUR, hour);
+                                  intent.putExtra(AlarmClock.EXTRA_MINUTES, minute);
+                                  if (!a2.isEmpty()) intent.putExtra(AlarmClock.EXTRA_MESSAGE, a2);
+                                  intent.putExtra(AlarmClock.EXTRA_SKIP_UI, true);
+                                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                  ctx.startActivity(intent);
+                                  return String.format("已设定 %02d:%02d 闹钟%s", hour, minute, a2.isEmpty() ? "" : "（" + a2 + "）");
+                              }
+
+                              case "set_timer": {
+                                  int seconds = Math.max(1, Integer.parseInt(a1.replaceAll("[^0-9]", "")));
+                                  Intent intent = new Intent(AlarmClock.ACTION_SET_TIMER);
+                                  intent.putExtra(AlarmClock.EXTRA_LENGTH, seconds);
+                                  if (!a2.isEmpty()) intent.putExtra(AlarmClock.EXTRA_MESSAGE, a2);
+                                  intent.putExtra(AlarmClock.EXTRA_SKIP_UI, true);
+                                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                  ctx.startActivity(intent);
+                                  return "已开启 " + seconds + " 秒倒计时" + (a2.isEmpty() ? "" : "（" + a2 + "）");
+                              }
+
+                              case "open_app": {
+                                  String opened = openAppByNameOrPkg(ctx, a1);
+                                  return opened != null ? "已打开 " + opened : "未找到应用：" + a1;
+                              }
+
+                              case "web_search": {
+                                  try {
+                                      Intent si = new Intent(Intent.ACTION_WEB_SEARCH);
+                                      si.putExtra(SearchManager.QUERY, a1);
+                                      si.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                      ctx.startActivity(si);
+                                  } catch (Exception e) {
+                                      Intent bi = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.bing.com/search?q=" + Uri.encode(a1)));
+                                      bi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                      ctx.startActivity(bi);
+                                  }
+                                  return "已搜索：" + a1;
+                              }
+
+                              case "copy": {
+                                  ClipboardManager cm = (ClipboardManager) ctx.getSystemService(Context.CLIPBOARD_SERVICE);
+                                  if (cm != null) {
+                                      cm.setPrimaryClip(ClipData.newPlainText("WhaleAI", a1));
+                                      return "已复制到剪贴板";
+                                  }
+                                  return "剪贴板不可用";
+                              }
+
+                              case "volume": {
+                                  int pct = Math.max(0, Math.min(100, Integer.parseInt(a1.replaceAll("[^0-9]", ""))));
+                                  AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                                  if (am != null) {
+                                      int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                                      int target = Math.round(max * pct / 100f);
+                                      am.setStreamVolume(AudioManager.STREAM_MUSIC, target, AudioManager.FLAG_SHOW_UI);
+                                      return "已将媒体音量调至 " + pct + "%";
+                                  }
+                                  return "音量调节失败";
+                              }
+
+                              case "brightness": {
+                                  int pct = Math.max(5, Math.min(100, Integer.parseInt(a1.replaceAll("[^0-9]", ""))));
+                                  if (ShizukuHelper.hasPermission()) {
+                                      int val = Math.round(pct * 255f / 100f);
+                                      ShizukuHelper.execShellText("settings put system screen_brightness_mode 0 && settings put system screen_brightness " + val);
+                                      return "已通过 Shizuku 将亮度调至 " + pct + "%";
+                                  }
+                                  return "调节亮度需要开启 Shizuku 授权";
+                              }
+
+                              default:
+                                  return "暂不支持指令：" + act;
+                          }
+                      } catch (Exception e) {
+                          return "执行失败：" + e.getMessage();
+                      }
+                  }
+
+                  private static void sendMediaKey(Context ctx, int keyCode) {
+                      AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                      if (am != null) {
+                          am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
+                          am.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
+                      }
+                  }
+
+                  private static String openAppByNameOrPkg(Context ctx, String query) {
+                      if (query == null || query.isEmpty()) return null;
+                      PackageManager pm = ctx.getPackageManager();
+                      Intent direct = pm.getLaunchIntentForPackage(query);
+                      if (direct != null) {
+                          direct.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                          ctx.startActivity(direct);
+                          return query;
+                      }
+                      String q = query.toLowerCase();
+                      // 常见中文别名映射
+                      if (q.contains("b站") || q.contains("哔哩")) q = "bilibili";
+                      else if (q.contains("椒盐")) q = "com.salt.music";
+                      else if (q.contains("微信")) q = "com.tencent.mm";
+                      else if (q.equals("qq")) q = "com.tencent.mobileqq";
+
+                      Intent aliasDirect = pm.getLaunchIntentForPackage(q);
+                      if (aliasDirect != null) {
+                          aliasDirect.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                          ctx.startActivity(aliasDirect);
+                          return query;
+                      }
+
+                      List<ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+                      for (ApplicationInfo app : apps) {
+                          Intent li = pm.getLaunchIntentForPackage(app.packageName);
+                          if (li == null) continue;
+                          String label = pm.getApplicationLabel(app).toString();
+                          if (label.toLowerCase().contains(q) || app.packageName.toLowerCase().contains(q)) {
+                              li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                              ctx.startActivity(li);
+                              return label;
+                          }
+                      }
+                      return null;
+                  }
+              }
+              """).lstrip())
+
+          # 7. ScreenCaptureActivity.java (未启用 Shizuku 时的 MediaProjection 单次看屏回退通道)
+          with open(os.path.join(java_dir, 'ScreenCaptureActivity.java'), 'w', encoding='utf-8') as f:
+              f.write(textwrap.dedent(r"""
+              package com.takboo.whalecompanion;
+
+              import android.app.Activity;
+              import android.content.Context;
+              import android.content.Intent;
+              import android.graphics.Bitmap;
+              import android.graphics.PixelFormat;
+              import android.hardware.display.DisplayManager;
+              import android.hardware.display.VirtualDisplay;
+              import android.media.Image;
+              import android.media.ImageReader;
+              import android.media.projection.MediaProjection;
+              import android.media.projection.MediaProjectionManager;
+              import android.os.Bundle;
+              import android.os.Handler;
+              import android.os.Looper;
+              import android.util.DisplayMetrics;
+              import java.nio.ByteBuffer;
+
+              public class ScreenCaptureActivity extends Activity {
+                  private static final int REQ_SHOT = 4001;
+
+                  @Override
+                  protected void onCreate(Bundle savedInstanceState) {
+                      super.onCreate(savedInstanceState);
+                      MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                      if (mpm != null) {
+                          startActivityForResult(mpm.createScreenCaptureIntent(), REQ_SHOT);
+                      } else {
+                          notifyFail("系统不支持截屏授权");
+                          finish();
+                      }
+                  }
+
+                  @Override
+                  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                      super.onActivityResult(requestCode, resultCode, data);
+                      if (requestCode == REQ_SHOT && resultCode == RESULT_OK && data != null) {
+                          captureSingleFrame(data);
+                      } else {
+                          notifyFail("已取消截屏授权");
+                          finish();
+                      }
+                  }
+
+                  private void captureSingleFrame(Intent projectionData) {
+                      try {
+                          MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                          final MediaProjection mp = mpm.getMediaProjection(RESULT_OK, projectionData);
+                          if (mp == null) {
+                              notifyFail("无法创建 MediaProjection");
+                              finish();
+                              return;
+                          }
+                          DisplayMetrics dm = getResources().getDisplayMetrics();
+                          final int w = dm.widthPixels;
+                          final int h = dm.heightPixels;
+                          final int dpi = dm.densityDpi;
+                          final ImageReader reader = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 2);
+                          final VirtualDisplay vd = mp.createVirtualDisplay("WhaleShot", w, h, dpi,
+                                  DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, reader.getSurface(), null, null);
+
+                          new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                              try {
+                                  Image img = reader.acquireLatestImage();
+                                  if (img != null) {
+                                      Image.Plane[] planes = img.getPlanes();
+                                      ByteBuffer buf = planes[0].getBuffer();
+                                      int pixelStride = planes[0].getPixelStride();
+                                      int rowStride = planes[0].getRowStride();
+                                      int rowPadding = rowStride - pixelStride * w;
+                                      Bitmap bmp = Bitmap.createBitmap(w + rowPadding / pixelStride, h, Bitmap.Config.ARGB_8888);
+                                      bmp.copyPixelsFromBuffer(buf);
+                                      img.close();
+                                      Bitmap cropped = Bitmap.createBitmap(bmp, 0, 0, w, h);
+                                      if (cropped != bmp) bmp.recycle();
+                                      String b64 = ShizukuHelper.encodeBitmapToJpegBase64(cropped, 960, 74);
+                                      if (FloatingOverlayService.instance != null && b64 != null) {
+                                          FloatingOverlayService.instance.deliverScreenShotBase64(b64);
+                                      } else {
+                                          notifyFail("截屏图像编码失败");
+                                      }
+                                  } else {
+                                      notifyFail("未捕获到屏幕画面");
+                                  }
+                              } catch (Throwable e) {
+                                  notifyFail("截屏出错：" + e.getMessage());
+                              } finally {
+                                  try { vd.release(); } catch (Throwable ignored) {}
+                                  try { reader.close(); } catch (Throwable ignored) {}
+                                  try { mp.stop(); } catch (Throwable ignored) {}
+                                  finish();
+                              }
+                          }, 350);
+                      } catch (Throwable e) {
+                          notifyFail("截屏异常：" + e.getMessage());
+                          finish();
+                      }
+                  }
+
+                  private void notifyFail(String msg) {
+                      if (FloatingOverlayService.instance != null) {
+                          FloatingOverlayService.instance.deliverScreenShotError(msg);
+                      }
+                  }
+              }
+              """).lstrip())
+
+          # 8. SystemAudioCaptureService.java
           with open(os.path.join(java_dir, 'SystemAudioCaptureService.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
@@ -823,7 +1352,7 @@ jobs:
               }
               """).lstrip())
 
-          # 6. FloatingOverlayService.java (新增 ACTION_BATTERY_CHANGED 实时检测充电到 80% 与放电到 40% 自动探头提醒 + 支持自定义贴图读取)
+          # 9. FloatingOverlayService.java (集成动作执行桥 + 静默/回退看屏截屏 + 通知自动重连)
           with open(os.path.join(java_dir, 'FloatingOverlayService.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
@@ -870,7 +1399,7 @@ jobs:
 
               public class FloatingOverlayService extends Service {
                   public static FloatingOverlayService instance;
-                  private static final String CHANNEL_ID = "WhaleFloatingOverlayV7";
+                  private static final String CHANNEL_ID = "WhaleFloatingOverlayV8";
 
                   private WindowManager windowManager;
                   private WebView petWebView;
@@ -889,7 +1418,6 @@ jobs:
                   private int anchorX = 900;
                   private int anchorY = 600;
 
-                  // 充电到 80% 与用电到 40% 阈值提醒状态锁（避免同一周期重复刷屏）
                   private boolean remindedCharge80 = false;
                   private boolean remindedDrain40 = false;
                   private boolean remindedDrain20 = false;
@@ -903,6 +1431,7 @@ jobs:
                           if (Intent.ACTION_SCREEN_OFF.equals(act)) {
                               evalPanelJs("window.onScreenStateChanged && window.onScreenStateChanged(false);");
                           } else if (Intent.ACTION_SCREEN_ON.equals(act)) {
+                              DeviceContextHelper.ensureNotificationListenerBound(FloatingOverlayService.this);
                               evalPanelJs("window.onScreenStateChanged && window.onScreenStateChanged(true);");
                           } else if (Intent.ACTION_POWER_CONNECTED.equals(act)) {
                               remindedDrain40 = false;
@@ -922,23 +1451,15 @@ jobs:
                               if (isCharging) {
                                   remindedDrain40 = false;
                                   remindedDrain20 = false;
-                                  if (pct < 78) {
-                                      remindedCharge80 = false;
-                                  }
-                                  // 充电到达 80% 提醒（从低于80充到80，或插上充电器正好80%且尚未提醒）
+                                  if (pct < 78) remindedCharge80 = false;
                                   if (pct >= 80 && !remindedCharge80 && (lastObservedBatteryPct < 80 || lastObservedBatteryPct == -1)) {
                                       remindedCharge80 = true;
                                       notifyInstantEvent("battery_charged_80", "主人！电量已经充到 " + pct + "% 啦🔋 达到 80% 黄金养护线咯～");
                                   }
                               } else {
                                   remindedCharge80 = false;
-                                  if (pct > 42) {
-                                      remindedDrain40 = false;
-                                  }
-                                  if (pct > 22) {
-                                      remindedDrain20 = false;
-                                  }
-                                  // 用电降到 40% 提醒
+                                  if (pct > 42) remindedDrain40 = false;
+                                  if (pct > 22) remindedDrain20 = false;
                                   if (pct <= 40 && pct > 20 && !remindedDrain40 && (lastObservedBatteryPct > 40 || lastObservedBatteryPct == -1)) {
                                       remindedDrain40 = true;
                                       notifyInstantEvent("battery_drain_40", "提醒主人～电量已经用到 " + pct + "% 啦⚡ 要留意剩余电量哦！");
@@ -957,14 +1478,15 @@ jobs:
                       super.onCreate();
                       instance = this;
                       createNotificationChannel();
+                      DeviceContextHelper.ensureNotificationListenerBound(this);
 
                       Intent openAppIntent = new Intent(this, MainActivity.class);
                       PendingIntent pi = PendingIntent.getActivity(this, 0, openAppIntent,
                               PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
                       Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                              .setContentTitle("大肥鱼桌面悬浮球运行中")
-                              .setContentText("点击进入预设、贴图与尺寸控制台")
+                              .setContentTitle("大肥鱼全局 AI 助理运行中")
+                              .setContentText("点击进入白名单、Shizuku、记忆与预设控制台")
                               .setSmallIcon(android.R.drawable.sym_def_app_icon)
                               .setContentIntent(pi)
                               .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -990,7 +1512,6 @@ jobs:
                       return Math.round(d * density);
                   }
 
-                  // 支持从内部存储直接读取用户上传的自定义角色贴图 (custom_sprite_idle / custom_sprite_talk)
                   public static WebResourceResponse interceptCustomSpriteRequest(Context ctx, WebResourceRequest request, WebViewAssetLoader assetLoader) {
                       String path = request.getUrl().getPath();
                       if (path != null && path.startsWith("/custom_sprites/")) {
@@ -1097,8 +1618,8 @@ jobs:
                       });
 
                       panelParams = new WindowManager.LayoutParams(
-                              dp(235),
-                              dp(130),
+                              dp(260),
+                              dp(145),
                               WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                               WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                                       | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
@@ -1230,8 +1751,8 @@ jobs:
 
                   private void showPanelWindow(String panelState, boolean focusKeyboard) {
                       if (windowManager == null || panelWebView == null) return;
-                      int wDp = "chat".equals(panelState) ? 265 : 235;
-                      int hDp = "chat".equals(panelState) ? 165 : 130;
+                      int wDp = "history".equals(panelState) ? 285 : ("chat".equals(panelState) ? 275 : 260);
+                      int hDp = "history".equals(panelState) ? 270 : ("chat".equals(panelState) ? 175 : 145);
 
                       panelParams.width = dp(wDp);
                       panelParams.height = dp(hDp);
@@ -1343,6 +1864,23 @@ jobs:
                       evalPanelJs("window.onSystemAudioWav && window.onSystemAudioWav('" + b64Wav + "');");
                   }
 
+                  public void deliverScreenShotBase64(final String b64) {
+                      if (panelWebView == null) return;
+                      panelWebView.post(() -> {
+                          panelWebView.setVisibility(View.VISIBLE);
+                          evalPanelJs("window.onScreenShotCaptured && window.onScreenShotCaptured('" + b64 + "');");
+                      });
+                  }
+
+                  public void deliverScreenShotError(final String msg) {
+                      if (panelWebView == null) return;
+                      String safe = msg.replace("'", "\\'");
+                      panelWebView.post(() -> {
+                          panelWebView.setVisibility(View.VISIBLE);
+                          evalPanelJs("window.onScreenShotError && window.onScreenShotError('" + safe + "');");
+                      });
+                  }
+
                   public class SharedOverlayBridge {
                       @JavascriptInterface
                       public void expandPanel(final String state, final boolean needKeyboard) {
@@ -1359,8 +1897,8 @@ jobs:
                       public void resizePanelHeight(final int widthDp, final int heightDp, final boolean needKeyboard) {
                           if (panelWebView == null) return;
                           panelWebView.post(() -> {
-                              panelParams.width = dp(Math.max(190, Math.min(310, widthDp)));
-                              panelParams.height = dp(Math.max(95, Math.min(280, heightDp)));
+                              panelParams.width = dp(Math.max(200, Math.min(320, widthDp)));
+                              panelParams.height = dp(Math.max(100, Math.min(320, heightDp)));
                               if (needKeyboard) {
                                   panelParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
                               } else {
@@ -1393,6 +1931,37 @@ jobs:
                       @JavascriptInterface
                       public String getDeviceContextJson() {
                           return DeviceContextHelper.getDeviceStatusJson(FloatingOverlayService.this);
+                      }
+
+                      @JavascriptInterface
+                      public String executeAssistantAction(String actionType, String arg1, String arg2) {
+                          return AssistantActionHelper.executeAction(FloatingOverlayService.this, actionType, arg1, arg2);
+                      }
+
+                      @JavascriptInterface
+                      public void requestScreenCapture() {
+                          if (panelWebView == null) return;
+                          panelWebView.post(() -> {
+                              // 截屏瞬间短暂隐藏对话气泡，避免挡住屏幕内容
+                              panelWebView.setVisibility(View.INVISIBLE);
+                              if (ShizukuHelper.hasPermission()) {
+                                  new Thread(() -> {
+                                      try { Thread.sleep(130); } catch (InterruptedException ignored) {}
+                                      String b64 = ShizukuHelper.captureScreenBase64(FloatingOverlayService.this);
+                                      if (b64 != null && !b64.isEmpty()) {
+                                          deliverScreenShotBase64(b64);
+                                      } else {
+                                          deliverScreenShotError("Shizuku 静默截屏失败，请检查 Shizuku 状态");
+                                      }
+                                  }, "WhaleShizukuShot").start();
+                              } else {
+                                  panelWebView.postDelayed(() -> {
+                                      Intent i = new Intent(FloatingOverlayService.this, ScreenCaptureActivity.class);
+                                      i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                      startActivity(i);
+                                  }, 120);
+                              }
+                          });
                       }
 
                       @JavascriptInterface
@@ -1437,9 +2006,7 @@ jobs:
                   @Override
                   public void onDestroy() {
                       instance = null;
-                      try {
-                          unregisterReceiver(systemEventReceiver);
-                      } catch (Exception ignored) {}
+                      try { unregisterReceiver(systemEventReceiver); } catch (Exception ignored) {}
                       if (windowManager != null) {
                           if (petWebView != null) windowManager.removeView(petWebView);
                           if (panelWebView != null) windowManager.removeView(panelWebView);
@@ -1456,7 +2023,7 @@ jobs:
                   private void createNotificationChannel() {
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                           NotificationChannel channel = new NotificationChannel(
-                                  CHANNEL_ID, "大肥鱼全局桌面悬浮球", NotificationManager.IMPORTANCE_MIN);
+                                  CHANNEL_ID, "大肥鱼全局 AI 助理", NotificationManager.IMPORTANCE_MIN);
                           NotificationManager nm = getSystemService(NotificationManager.class);
                           if (nm != null) nm.createNotificationChannel(channel);
                       }
@@ -1464,13 +2031,15 @@ jobs:
               }
               """).lstrip())
 
-          # 7. MainActivity.java (新增从手机相册选择自定义角色贴图与张嘴差分贴图功能)
+          # 10. MainActivity.java (SAF 原生文件导出/导入预设 + Shizuku 授权回调 + 通知监听自动重连 + 白名单同步)
           with open(os.path.join(java_dir, 'MainActivity.java'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               package com.takboo.whalecompanion;
 
               import android.Manifest;
               import android.app.Activity;
+              import android.content.ClipData;
+              import android.content.ClipboardManager;
               import android.content.Context;
               import android.content.Intent;
               import android.content.SharedPreferences;
@@ -1479,18 +2048,25 @@ jobs:
               import android.os.Build;
               import android.os.Bundle;
               import android.provider.Settings;
+              import android.util.Base64;
               import android.webkit.JavascriptInterface;
+              import android.webkit.WebChromeClient;
               import android.webkit.WebResourceRequest;
               import android.webkit.WebResourceResponse;
               import android.webkit.WebSettings;
               import android.webkit.WebView;
               import android.webkit.WebViewClient;
+              import android.widget.Toast;
               import androidx.appcompat.app.AppCompatActivity;
               import androidx.core.app.ActivityCompat;
               import androidx.webkit.WebViewAssetLoader;
+              import java.io.ByteArrayOutputStream;
               import java.io.File;
               import java.io.FileOutputStream;
               import java.io.InputStream;
+              import java.io.OutputStream;
+              import java.nio.charset.StandardCharsets;
+              import rikka.shizuku.Shizuku;
 
               public class MainActivity extends AppCompatActivity {
                   private static final int REQ_MEDIA_PROJECTION = 2001;
@@ -1498,11 +2074,25 @@ jobs:
                   private static final int REQ_OVERLAY = 2003;
                   private static final int REQ_PICK_IDLE_SPRITE = 2004;
                   private static final int REQ_PICK_TALK_SPRITE = 2005;
+                  private static final int REQ_EXPORT_PRESET_FILE = 2006;
+                  private static final int REQ_IMPORT_PRESET_FILE = 2007;
+
                   private WebView controlWebView;
+                  private String pendingExportJson = "";
+
+                  private final Shizuku.OnRequestPermissionResultListener shizukuPermListener = (requestCode, grantResult) -> {
+                      runOnUiThread(() -> {
+                          if (controlWebView != null) {
+                              controlWebView.evaluateJavascript("window.refreshDashboard && window.refreshDashboard();", null);
+                          }
+                      });
+                  };
 
                   @Override
                   protected void onCreate(Bundle savedInstanceState) {
                       super.onCreate(savedInstanceState);
+                      try { Shizuku.addRequestPermissionResultListener(shizukuPermListener); } catch (Throwable ignored) {}
+
                       controlWebView = new WebView(this);
                       setContentView(controlWebView);
 
@@ -1510,6 +2100,7 @@ jobs:
                       s.setJavaScriptEnabled(true);
                       s.setDomStorageEnabled(true);
                       s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+                      controlWebView.setWebChromeClient(new WebChromeClient());
 
                       final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                               .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -1524,23 +2115,43 @@ jobs:
 
                       controlWebView.addJavascriptInterface(new MainControlBridge(), "MainBridge");
                       requestBasePermissions();
+                      DeviceContextHelper.ensureNotificationListenerBound(this);
                       controlWebView.loadUrl("https://appassets.androidplatform.net/assets/www/control-panel.html");
                   }
 
                   @Override
                   protected void onResume() {
                       super.onResume();
+                      DeviceContextHelper.ensureNotificationListenerBound(this);
                       if (controlWebView != null) {
                           controlWebView.evaluateJavascript("window.refreshDashboard && window.refreshDashboard();", null);
                       }
                   }
 
+                  @Override
+                  protected void onDestroy() {
+                      try { Shizuku.removeRequestPermissionResultListener(shizukuPermListener); } catch (Throwable ignored) {}
+                      super.onDestroy();
+                  }
+
                   private void requestBasePermissions() {
-                      String[] perms = new String[]{
-                              Manifest.permission.RECORD_AUDIO,
-                              Manifest.permission.ACCESS_COARSE_LOCATION,
-                              Manifest.permission.ACCESS_FINE_LOCATION
-                      };
+                      String[] perms;
+                      if (Build.VERSION.SDK_INT >= 33) {
+                          perms = new String[]{
+                                  Manifest.permission.RECORD_AUDIO,
+                                  Manifest.permission.ACCESS_COARSE_LOCATION,
+                                  Manifest.permission.ACCESS_FINE_LOCATION,
+                                  Manifest.permission.POST_NOTIFICATIONS,
+                                  Manifest.permission.READ_MEDIA_IMAGES
+                          };
+                      } else {
+                          perms = new String[]{
+                                  Manifest.permission.RECORD_AUDIO,
+                                  Manifest.permission.ACCESS_COARSE_LOCATION,
+                                  Manifest.permission.ACCESS_FINE_LOCATION,
+                                  Manifest.permission.READ_EXTERNAL_STORAGE
+                          };
+                      }
                       ActivityCompat.requestPermissions(this, perms, REQ_PERMS);
                   }
 
@@ -1599,6 +2210,37 @@ jobs:
                           savePickedSpriteUri(data.getData(), "custom_idle.dat");
                       } else if (requestCode == REQ_PICK_TALK_SPRITE && resultCode == Activity.RESULT_OK && data != null) {
                           savePickedSpriteUri(data.getData(), "custom_talk.dat");
+                      } else if (requestCode == REQ_EXPORT_PRESET_FILE && resultCode == Activity.RESULT_OK && data != null) {
+                          Uri uri = data.getData();
+                          if (uri != null) {
+                              try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                                  if (os != null) {
+                                      os.write(pendingExportJson.getBytes(StandardCharsets.UTF_8));
+                                      os.flush();
+                                      Toast.makeText(this, "✅ 预设文件已成功导出！", Toast.LENGTH_SHORT).show();
+                                  }
+                              } catch (Exception e) {
+                                  Toast.makeText(this, "导出失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                              }
+                          }
+                      } else if (requestCode == REQ_IMPORT_PRESET_FILE && resultCode == Activity.RESULT_OK && data != null) {
+                          Uri uri = data.getData();
+                          if (uri != null) {
+                              try (InputStream is = getContentResolver().openInputStream(uri)) {
+                                  if (is != null) {
+                                      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                      byte[] buf = new byte[8192];
+                                      int len;
+                                      while ((len = is.read(buf)) > 0) baos.write(buf, 0, len);
+                                      String b64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+                                      if (controlWebView != null) {
+                                          controlWebView.evaluateJavascript("window.onNativePresetImported && window.onNativePresetImported('" + b64 + "');", null);
+                                      }
+                                  }
+                              } catch (Exception e) {
+                                  Toast.makeText(this, "读取文件失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                              }
+                          }
                       }
                   }
 
@@ -1679,6 +2321,59 @@ jobs:
                       }
 
                       @JavascriptInterface
+                      public void requestShizukuPermission() {
+                          runOnUiThread(() -> {
+                              if (!ShizukuHelper.isAvailable()) {
+                                  Toast.makeText(MainActivity.this, "请先安装并启动 Shizuku 服务", Toast.LENGTH_LONG).show();
+                                  Intent launch = getPackageManager().getLaunchIntentForPackage("moe.shizuku.privileged.api");
+                                  if (launch != null) startActivity(launch);
+                                  return;
+                              }
+                              if (ShizukuHelper.hasPermission()) {
+                                  Toast.makeText(MainActivity.this, "✅ Shizuku 已授权！", Toast.LENGTH_SHORT).show();
+                              } else {
+                                  ShizukuHelper.requestPermission();
+                              }
+                              if (controlWebView != null) {
+                                  controlWebView.evaluateJavascript("window.refreshDashboard && window.refreshDashboard();", null);
+                              }
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public void exportPresetToFile(final String jsonContent, final String suggestedName) {
+                          runOnUiThread(() -> {
+                              pendingExportJson = jsonContent != null ? jsonContent : "{}";
+                              Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                              intent.addCategory(Intent.CATEGORY_OPENABLE);
+                              intent.setType("application/json");
+                              intent.putExtra(Intent.EXTRA_TITLE, (suggestedName != null && !suggestedName.isEmpty()) ? suggestedName : "whale_preset_v8.json");
+                              startActivityForResult(intent, REQ_EXPORT_PRESET_FILE);
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public void importPresetFromFile() {
+                          runOnUiThread(() -> {
+                              Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                              intent.addCategory(Intent.CATEGORY_OPENABLE);
+                              intent.setType("*/*");
+                              startActivityForResult(intent, REQ_IMPORT_PRESET_FILE);
+                          });
+                      }
+
+                      @JavascriptInterface
+                      public void copyTextToClipboard(final String text) {
+                          runOnUiThread(() -> {
+                              ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                              if (cm != null) {
+                                  cm.setPrimaryClip(ClipData.newPlainText("WhalePreset", text));
+                                  Toast.makeText(MainActivity.this, "✅ 已复制到剪贴板", Toast.LENGTH_SHORT).show();
+                              }
+                          });
+                      }
+
+                      @JavascriptInterface
                       public void toggleSystemAudioCapture(boolean autoSliceWav) {
                           runOnUiThread(() -> {
                               if (SystemAudioCaptureService.isCapturing) {
@@ -1701,7 +2396,12 @@ jobs:
                       }
 
                       @JavascriptInterface
-                      public void notifyConfigSaved(int newSizeDp) {
+                      public void notifyConfigSaved(int newSizeDp, String musicWhitelist, int songCooldownSec) {
+                          SharedPreferences sp = getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
+                          sp.edit()
+                                  .putString("musicWhitelist", (musicWhitelist != null && !musicWhitelist.trim().isEmpty()) ? musicWhitelist.trim() : "com.salt.music")
+                                  .putInt("songCooldownSec", Math.max(10, songCooldownSec))
+                                  .apply();
                           if (FloatingOverlayService.instance != null) {
                               FloatingOverlayService.instance.updatePetSizeFromSettings(newSizeDp);
                           }
@@ -1717,7 +2417,7 @@ jobs:
               }
               """).lstrip())
 
-          # 8. 生成纯桌宠本体渲染页 pet-sprite.html（支持自定义角色贴图 PNG/GIF/WebP + 可选说话差分贴图 + 实时等比缩放）
+          # 11. 生成纯桌宠本体渲染页 pet-sprite.html
           with open(os.path.join(www_dir, 'pet-sprite.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
@@ -1736,34 +2436,18 @@ jobs:
                     display: flex; align-items: center; justify-content: center;
                     transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
                   }
-                  body.pose-peek.edge-right #sprite-wrap {
-                    transform: translateX(32%) rotate(-24deg);
-                  }
-                  body.pose-peek.edge-left #sprite-wrap {
-                    transform: translateX(-32%) rotate(24deg);
-                  }
-                  body.pose-peek.edge-bottom #sprite-wrap {
-                    transform: translateY(34%);
-                  }
-                  body.pose-active #sprite-wrap {
-                    transform: translate(0, 0) rotate(0deg);
-                  }
-                  canvas, #custom-gif-img {
-                    width: 100%; height: 100%; display: block; object-fit: contain;
-                  }
-                  #custom-gif-img {
-                    display: none;
-                  }
-                  #mood-badge {
-                    position: absolute; top: 2px; right: 2px; font-size: 16px; pointer-events: none;
-                  }
+                  body.pose-peek.edge-right #sprite-wrap { transform: translateX(32%) rotate(-24deg); }
+                  body.pose-peek.edge-left #sprite-wrap { transform: translateX(-32%) rotate(24deg); }
+                  body.pose-peek.edge-bottom #sprite-wrap { transform: translateY(34%); }
+                  body.pose-active #sprite-wrap { transform: translate(0, 0) rotate(0deg); }
+                  canvas, #custom-gif-img { width: 100%; height: 100%; display: block; object-fit: contain; }
+                  #custom-gif-img { display: none; }
                 </style>
               </head>
               <body class="pose-peek edge-right">
                 <div id="sprite-wrap">
                   <canvas id="pet-canvas" width="256" height="256"></canvas>
                   <img id="custom-gif-img" alt="pet" />
-                  <div id="mood-badge"></div>
                 </div>
                 <script>
                   const COLOR_SCHEMES = {
@@ -1787,14 +2471,9 @@ jobs:
                   let customTalkImg = new Image();
                   let hasCustomTalk = false;
 
-                  let state = {
-                    tick: 0,
-                    bounce: 0,
-                    mouth: 0,
-                    mood: 'calm'
-                  };
+                  let state = { tick: 0, bounce: 0, mouth: 0, mood: 'calm' };
 
-                  window.reloadSpriteConfig = function(forceReloadImg) {
+                  window.reloadSpriteConfig = function() {
                     try {
                       const cfg = JSON.parse(localStorage.getItem('whale_v6_cfg') || '{}');
                       document.getElementById('sprite-wrap').style.filter = COLOR_SCHEMES[cfg.colorScheme] || 'none';
@@ -1808,9 +2487,6 @@ jobs:
                         customIdleImg = new Image();
                         customIdleImg.onload = () => { hasCustomIdle = true; };
                         customIdleImg.src = 'https://appassets.androidplatform.net/custom_sprites/custom_idle.dat?t=' + ts;
-                        // 同步给 GIF <img> 标签以支持动态 GIF/WebP 帧播放
-                        const gifEl = document.getElementById('custom-gif-img');
-                        gifEl.src = customIdleImg.src;
                       } else {
                         hasCustomIdle = false;
                       }
@@ -1855,20 +2531,14 @@ jobs:
                     state.tick += 0.07;
                     ctx.clearRect(0, 0, 256, 256);
                     ctx.save();
-
                     const dy = Math.sin(state.tick) * 4 - state.bounce * 20;
                     const rot = state.mood === 'dancing'
                       ? Math.sin(state.tick * 3.5) * 0.14
                       : Math.sin(state.tick * 0.8) * 0.04;
-
                     ctx.translate(128, 132 + dy);
                     ctx.rotate(rot);
+                    ctx.scale(1 + state.bounce * 0.12, 1 - state.bounce * 0.10);
 
-                    const sx = 1 + state.bounce * 0.12;
-                    const sy = 1 - state.bounce * 0.10;
-                    ctx.scale(sx, sy);
-
-                    // 优先绘制用户自定义贴图（如果正在说话且上传了张嘴差分贴图，自动切换为张嘴贴图！）
                     let activeImg = null;
                     if (state.mouth > 0.1 && hasCustomTalk && customTalkImg.complete && customTalkImg.naturalWidth > 0) {
                       activeImg = customTalkImg;
@@ -1880,7 +2550,6 @@ jobs:
 
                     if (activeImg) {
                       ctx.drawImage(activeImg, -118, -118, 236, 236);
-                      // 若未设置独立张嘴贴图，使用默认大肥鱼时绘制动态口型
                       if (!hasCustomIdle && state.mouth > 0.08) {
                         ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
                         ctx.beginPath();
@@ -1900,20 +2569,19 @@ jobs:
                     } else if (state.mood === 'dancing') {
                       ctx.font = '34px sans-serif'; ctx.fillText('🎵', 180, 50 + Math.cos(state.tick * 4) * 5);
                     }
-
                     state.bounce *= 0.82;
                     state.mouth *= 0.84;
                     requestAnimationFrame(draw);
                   }
 
-                  reloadSpriteConfig(true);
+                  reloadSpriteConfig();
                   requestAnimationFrame(draw);
                 </script>
               </body>
               </html>
               """).lstrip())
 
-          # 9. 生成独立气泡与双按钮浮窗页 pet-panel.html（新增 AbortController：思考/生成时点 ✕ 立即停止生成！）
+          # 12. 生成全局 AI 助理交互面板 pet-panel.html（新增：一键看屏、动手指令执行、长期记忆注入、历史对话抽屉）
           with open(os.path.join(www_dir, 'pet-panel.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
@@ -1930,60 +2598,97 @@ jobs:
                   }
                   .panel-wrap {
                     width: 100vw; height: 100vh; padding: 4px;
-                    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+                    display: flex; flex-direction: column; justify-content: center; gap: 5px;
                   }
                   #bubble-box {
                     background: rgba(15, 23, 42, 0.94); color: #f8fafc;
                     border: 1.5px solid rgba(56, 189, 248, 0.65);
                     border-radius: 14px; padding: 8px 11px;
                     font-size: 12.5px; line-height: 1.42;
-                    max-height: calc(100vh - 44px); overflow-y: auto;
+                    max-height: calc(100vh - 46px); overflow-y: auto;
                     box-shadow: 0 6px 16px rgba(0,0,0,0.35);
                     word-break: break-word;
                   }
+                  #action-toast {
+                    display: none; font-size: 11px; color: #34d399;
+                    background: rgba(6, 78, 59, 0.9); border: 1px solid rgba(52, 211, 153, 0.5);
+                    border-radius: 10px; padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                  }
+                  #history-box {
+                    display: none; flex: 1; overflow-y: auto;
+                    background: rgba(15, 23, 42, 0.96); color: #e2e8f0;
+                    border: 1.5px solid rgba(56, 189, 248, 0.65);
+                    border-radius: 14px; padding: 8px;
+                    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+                    font-size: 11.5px;
+                  }
+                  .hist-head {
+                    display: flex; justify-content: space-between; align-items: center;
+                    padding-bottom: 5px; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.12);
+                    font-weight: 600; color: #38bdf8;
+                  }
+                  .hist-item { margin-bottom: 6px; padding: 5px 7px; border-radius: 8px; line-height: 1.38; word-break: break-word; }
+                  .hist-user { background: rgba(2, 132, 199, 0.28); border-left: 2px solid #38bdf8; }
+                  .hist-ai { background: rgba(30, 41, 59, 0.85); border-left: 2px solid #a78bfa; }
+                  .hist-meta { font-size: 10px; color: #94a3b8; margin-bottom: 2px; }
                   .btn-row {
-                    display: flex; gap: 6px; align-items: center; justify-content: flex-end;
+                    display: flex; gap: 4px; align-items: center; justify-content: flex-end; flex-wrap: nowrap;
                   }
                   .pill-btn {
                     background: rgba(15, 23, 42, 0.92); color: #f8fafc;
                     border: 1.2px solid rgba(56, 189, 248, 0.65);
-                    border-radius: 999px; padding: 5px 11px; font-size: 11.5px; font-weight: 600;
+                    border-radius: 999px; padding: 5px 8px; font-size: 11px; font-weight: 600;
                     cursor: pointer; white-space: nowrap;
                   }
                   .pill-btn.close {
-                    border-color: rgba(148, 163, 184, 0.45); color: #94a3b8; padding: 5px 9px;
+                    border-color: rgba(148, 163, 184, 0.45); color: #94a3b8; padding: 5px 8px;
                   }
                   .pill-btn.stop-active {
-                    border-color: #f87171; background: rgba(127, 29, 29, 0.92); color: #fecaca; padding: 5px 11px;
+                    border-color: #f87171; background: rgba(127, 29, 29, 0.92); color: #fecaca; padding: 5px 9px;
                   }
                   #input-row {
-                    display: none; gap: 5px; align-items: center;
+                    display: none; gap: 4px; align-items: center;
                     background: rgba(15, 23, 42, 0.96);
-                    border: 1.5px solid #38bdf8; border-radius: 999px; padding: 4px 7px;
+                    border: 1.5px solid #38bdf8; border-radius: 999px; padding: 4px 6px;
                   }
                   #chat-inp {
                     flex: 1; background: transparent; border: none; color: #fff;
-                    font-size: 12.5px; outline: none; padding: 3px 4px;
+                    font-size: 12px; outline: none; padding: 3px 4px; min-width: 0;
                   }
                   .send-btn {
                     background: #0284c7; color: #fff; border: none; border-radius: 999px;
-                    padding: 4px 10px; font-size: 11.5px; font-weight: 600;
+                    padding: 4px 9px; font-size: 11px; font-weight: 600; white-space: nowrap;
                   }
                 </style>
               </head>
               <body>
                 <div class="panel-wrap">
-                  <div id="bubble-box">噗通！你的桌面小鲸鱼已就位～</div>
+                  <div id="action-toast"></div>
+                  <div id="bubble-box">噗通！你的全局 AI 伴侣已就位～</div>
+
+                  <div id="history-box">
+                    <div class="hist-head">
+                      <span>📜 历史对话记录</span>
+                      <div style="display:flex;gap:6px;">
+                        <span style="cursor:pointer;color:#f87171;" onclick="clearSavedHistory()">清空</span>
+                        <span style="cursor:pointer;color:#94a3b8;" onclick="toggleHistoryView(false)">返回</span>
+                      </div>
+                    </div>
+                    <div id="history-list"></div>
+                  </div>
 
                   <div class="btn-row" id="action-row">
-                    <button class="pill-btn" onclick="startVoice()">🎤 语音</button>
+                    <button class="pill-btn" onclick="startVoice()">🎤</button>
                     <button class="pill-btn" onclick="openInputBar()">💬 对话</button>
+                    <button class="pill-btn" onclick="triggerScreenVision('')">👁️ 看屏</button>
+                    <button class="pill-btn" onclick="toggleHistoryView(true)">📜</button>
                     <button class="pill-btn close" id="btn-close-or-stop" onclick="onCloseOrStopClicked()" title="停止生成或收起">✕</button>
                   </div>
 
                   <div id="input-row">
                     <button class="pill-btn close" onclick="closeInputBar()">‹</button>
-                    <input id="chat-inp" placeholder="说点什么..." onkeydown="if(event.key==='Enter')sendText()" />
+                    <input id="chat-inp" placeholder="说点什么，或点👁️问屏幕..." onkeydown="if(event.key==='Enter')sendText()" />
+                    <button class="pill-btn" style="padding:4px 7px;" onclick="triggerScreenVision(document.getElementById('chat-inp').value.trim())" title="带上文字看屏">👁️</button>
                     <button class="send-btn" onclick="sendText()">发送</button>
                   </div>
                 </div>
@@ -1992,14 +2697,10 @@ jobs:
                   const WAKE_GREETINGS = [
                     "噗通！被你抓到我在偷偷探头看你啦，今天过得怎么样？",
                     "呼噜噜～终于想起我啦！要跟我语音说说话，还是打字聊？",
-                    "我刚刚在水面下吐泡泡呢，一感觉到你点我就立马跳出来啦！",
-                    "立正站好！你的桌面小鲸鱼已就位，随时听候差遣～",
-                    "嘿嘿，偷偷趴在屏幕边观察你好久了，是不是有点无聊呀？",
+                    "立正站好！全局 AI 助理已就位，切歌、定闹钟、看屏都可以叫我～",
+                    "嘿嘿，偷偷趴在屏幕边观察你好久了，需要我帮你看看屏幕吗？",
                     "摇摇尾巴打个招呼✨ 有什么好玩的事快跟我分享一下！",
-                    "哇，这一下戳得我精神百倍！点下面按钮跟我聊五块钱的？",
-                    "嘀嘀——大肥鱼陪伴能量满格！点左边麦克风可以直接跟我说话哦～",
-                    "刚在屏幕边打了个小盹，你一叫我就醒啦，现在在忙什么呢？",
-                    "扑腾！水面巡逻完毕，报告主人，今天也是超级想你的一天！"
+                    "刚在屏幕边打了个小盹，你一叫我就醒啦，现在在忙什么呢？"
                   ];
 
                   const DEFAULT_TAVERN_PRESET = {
@@ -2007,7 +2708,7 @@ jobs:
                     thinkingBudget: 0,
                     temperature: 0.85,
                     topP: 0.95,
-                    maxTokens: 140,
+                    maxTokens: 160,
                     contextDepth: 6,
                     entries: [
                       {
@@ -2036,11 +2737,11 @@ jobs:
                       },
                       {
                         id: 'world_info_phone',
-                        name: '世界书：手机实时状态注入 (KLWP World Info)',
+                        name: '世界书：手机实时状态与长期记忆注入',
                         enabled: true,
                         role: 'system',
                         position: 'top',
-                        content: '【当前手机实时状态】时间:{{time}} | 电量:{{battery}} | 天气:{{weather}} | 闹钟:{{alarm}} | 通知:{{notifications}} | 正在播放音乐:{{song}}。仅在话题相关或主动关怀时自然提及。'
+                        content: '【当前手机实时状态】时间:{{time}} | 电量:{{battery}} | 天气:{{weather}} | 闹钟:{{alarm}} | 通知:{{notifications}} | 正在播放音乐:{{song}}。\n【长期记忆】{{memory}}'
                       },
                       {
                         id: 'post_history_jb',
@@ -2048,10 +2749,22 @@ jobs:
                         enabled: true,
                         role: 'system',
                         position: 'bottom',
-                        content: '[输出铁律：严禁输出思维链，直接用口语回复1~2句话，总字数严格控制在55字以内！]'
+                        content: '[输出铁律：严禁输出思维链，直接用口语回复1~2句话，总字数严格控制在65字以内！]'
                       }
                     ]
                   };
+
+                  const ACTION_SYSTEM_GUIDE = `【手机动手能力指令】当用户明确要求你操控手机、切歌、设闹钟/倒计时、打开应用、搜索、复制、调音量/亮度或记住某件事时，在回复末尾附加对应指令标签（系统会自动执行并隐藏标签）：
+                  - 切歌/控制播放：[[ACTION:music_next]] / [[ACTION:music_prev]] / [[ACTION:music_pause]] / [[ACTION:music_play]]
+                  - 设闹钟：[[ACTION:set_alarm|07:30|起床]]
+                  - 设倒计时(秒)：[[ACTION:set_timer|600|泡面]]
+                  - 打开应用：[[ACTION:open_app|微信]]
+                  - 网页搜索：[[ACTION:web_search|关键词]]
+                  - 复制文本：[[ACTION:copy|要复制的内容]]
+                  - 媒体音量(0-100)：[[ACTION:volume|50]]
+                  - 屏幕亮度(5-100,需Shizuku)：[[ACTION:brightness|60]]
+                  - 写入长期记忆：[[ACTION:save_memory|精简记住的事实]]
+                  未要求执行动作时不要输出任何 [[ACTION:...]] 标签。`;
 
                   const DEFAULT_CFG = {
                     apiProvider: 'gemini',
@@ -2061,14 +2774,15 @@ jobs:
                     baseUrl: 'https://api.deepseek.com/v1',
                     apiKey: '',
                     model: 'deepseek-chat',
-                    asrModel: 'FunAudioLLM/SenseVoiceSmall',
                     petSizeDp: 58,
                     fontScale: 100,
                     colorScheme: 'deepseek_blue',
                     cityFallback: 'Shanghai',
-                    autoVideoComment: false,
                     userName: '主人',
                     charName: '大肥鱼',
+                    musicWhitelist: 'com.salt.music',
+                    songCooldownSec: 120,
+                    enableActions: true,
                     tavernPreset: DEFAULT_TAVERN_PRESET
                   };
 
@@ -2077,10 +2791,50 @@ jobs:
                   let lastReplyText = '';
                   let isScreenOn = true;
                   let isBusy = false;
+                  let isHistoryOpen = false;
+                  let pendingVisionPrompt = '';
                   let currentAbortController = null;
                   let autoCollapseTimer = null;
                   let thinkingTicker = null;
                   let cachedWeather = '晴朗适宜';
+
+                  function loadSavedHistory() {
+                    try {
+                      const arr = JSON.parse(localStorage.getItem('whale_v8_history') || '[]');
+                      if (Array.isArray(arr)) chatHistory = arr.slice(-40);
+                    } catch (_) { chatHistory = []; }
+                  }
+
+                  function persistHistory() {
+                    try {
+                      localStorage.setItem('whale_v8_history', JSON.stringify(chatHistory.slice(-40)));
+                    } catch (_) {}
+                  }
+
+                  function getLongTermMemories() {
+                    try {
+                      const arr = JSON.parse(localStorage.getItem('whale_v8_memories') || '[]');
+                      return Array.isArray(arr) ? arr : [];
+                    } catch (_) { return []; }
+                  }
+
+                  function appendLongTermMemory(fact) {
+                    const clean = (fact || '').trim();
+                    if (!clean) return false;
+                    const arr = getLongTermMemories();
+                    if (!arr.includes(clean)) {
+                      arr.push(clean);
+                      localStorage.setItem('whale_v8_memories', JSON.stringify(arr.slice(-50)));
+                    }
+                    return true;
+                  }
+
+                  function showActionToast(msg) {
+                    const el = document.getElementById('action-toast');
+                    el.textContent = '⚡ ' + msg;
+                    el.style.display = 'block';
+                    setTimeout(() => { el.style.display = 'none'; }, 5500);
+                  }
 
                   function updateCloseBtnState(busy) {
                     const btn = document.getElementById('btn-close-or-stop');
@@ -2094,7 +2848,6 @@ jobs:
                     }
                   }
 
-                  // 核心修复 #1：思考或生成时点击 ✕ 立即调用 AbortController 停止生成！
                   function onCloseOrStopClicked() {
                     if (isBusy) {
                       if (currentAbortController) {
@@ -2104,11 +2857,9 @@ jobs:
                       clearInterval(thinkingTicker);
                       isBusy = false;
                       updateCloseBtnState(false);
-                      if (window.OverlayBridge) {
-                        window.OverlayBridge.setPetMoodAndMouth('calm', 0);
-                      }
+                      if (window.OverlayBridge) window.OverlayBridge.setPetMoodAndMouth('calm', 0);
                       const curText = document.getElementById('bubble-box').textContent || '';
-                      if (curText.startsWith('💭 思考中') || curText.startsWith('🎤')) {
+                      if (curText.startsWith('💭') || curText.startsWith('🎤') || curText.startsWith('👁️')) {
                         setBubbleText('⏹ 已停止生成');
                       } else {
                         setBubbleText(curText + ' [⏹已停止]');
@@ -2116,7 +2867,6 @@ jobs:
                       scheduleAutoCollapse(20000);
                       return;
                     }
-                    // 非思考状态下点击 ✕ 则直接收起回半个头
                     closePanelNow();
                   }
 
@@ -2173,16 +2923,52 @@ jobs:
 
                   function scheduleAutoCollapse(delayMs = 25000) {
                     clearTimeout(autoCollapseTimer);
-                    if (isBusy) return;
+                    if (isBusy || isHistoryOpen) return;
                     autoCollapseTimer = setTimeout(() => {
-                      if (!isBusy && window.OverlayBridge) {
+                      if (!isBusy && !isHistoryOpen && window.OverlayBridge) {
                         window.OverlayBridge.collapseToPeek();
                       }
                     }, delayMs);
                   }
 
+                  function toggleHistoryView(open) {
+                    isHistoryOpen = open;
+                    clearTimeout(autoCollapseTimer);
+                    document.getElementById('history-box').style.display = open ? 'block' : 'none';
+                    document.getElementById('bubble-box').style.display = open ? 'none' : 'block';
+                    if (open) {
+                      renderHistoryList();
+                      if (window.OverlayBridge) window.OverlayBridge.resizePanelHeight(285, 270, false);
+                    } else {
+                      if (window.OverlayBridge) window.OverlayBridge.resizePanelHeight(260, 145, false);
+                      scheduleAutoCollapse(22000);
+                    }
+                  }
+
+                  function renderHistoryList() {
+                    const box = document.getElementById('history-list');
+                    if (!chatHistory.length) {
+                      box.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:16px 0;">暂无对话记录</div>';
+                      return;
+                    }
+                    box.innerHTML = chatHistory.map(m => {
+                      const isU = m.role === 'user';
+                      const who = isU ? (config.userName || '你') : (config.charName || '助手');
+                      const esc = (m.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                      return `<div class="hist-item ${isU ? 'hist-user' : 'hist-ai'}"><div class="hist-meta">${who} ${m.ts || ''}</div><div>${esc}</div></div>`;
+                    }).join('');
+                    box.parentElement.scrollTop = box.parentElement.scrollHeight;
+                  }
+
+                  function clearSavedHistory() {
+                    chatHistory = [];
+                    persistHistory();
+                    renderHistoryList();
+                  }
+
                   window.onPetWakeUp = function() {
                     if (isBusy) return;
+                    if (isHistoryOpen) toggleHistoryView(false);
                     const line = WAKE_GREETINGS[Math.floor(Math.random() * WAKE_GREETINGS.length)];
                     setBubbleText(line);
                     closeInputBar(false);
@@ -2191,14 +2977,11 @@ jobs:
 
                   function openInputBar() {
                     clearTimeout(autoCollapseTimer);
+                    if (isHistoryOpen) toggleHistoryView(false);
                     document.getElementById('action-row').style.display = 'none';
                     document.getElementById('input-row').style.display = 'flex';
-                    if (lastReplyText) {
-                      setBubbleText(lastReplyText);
-                    }
-                    if (window.OverlayBridge) {
-                      window.OverlayBridge.resizePanelHeight(265, 160, true);
-                    }
+                    if (lastReplyText) setBubbleText(lastReplyText);
+                    if (window.OverlayBridge) window.OverlayBridge.resizePanelHeight(275, 175, true);
                     setTimeout(() => document.getElementById('chat-inp').focus(), 180);
                   }
 
@@ -2206,7 +2989,7 @@ jobs:
                     document.getElementById('input-row').style.display = 'none';
                     document.getElementById('action-row').style.display = 'flex';
                     if (recalcWindow && window.OverlayBridge) {
-                      window.OverlayBridge.resizePanelHeight(235, 130, false);
+                      window.OverlayBridge.resizePanelHeight(260, 145, false);
                     }
                     scheduleAutoCollapse(25000);
                   }
@@ -2217,16 +3000,18 @@ jobs:
                       currentAbortController = null;
                     }
                     isBusy = false;
+                    isHistoryOpen = false;
+                    document.getElementById('history-box').style.display = 'none';
+                    document.getElementById('bubble-box').style.display = 'block';
                     updateCloseBtnState(false);
                     clearInterval(thinkingTicker);
                     clearTimeout(autoCollapseTimer);
-                    if (window.OverlayBridge) {
-                      window.OverlayBridge.collapseToPeek();
-                    }
+                    if (window.OverlayBridge) window.OverlayBridge.collapseToPeek();
                   }
 
                   function startVoice() {
                     clearTimeout(autoCollapseTimer);
+                    if (isHistoryOpen) toggleHistoryView(false);
                     isBusy = true;
                     updateCloseBtnState(true);
                     setBubbleText('🎤 正在倾听，请说话...');
@@ -2236,13 +3021,46 @@ jobs:
                     }
                   }
 
+                  function triggerScreenVision(customPrompt) {
+                    reloadPanelConfig();
+                    if (!hasValidKey()) {
+                      setBubbleText('请先打开主程序填好 API Key 哦！');
+                      return;
+                    }
+                    clearTimeout(autoCollapseTimer);
+                    if (isHistoryOpen) toggleHistoryView(false);
+                    const inp = document.getElementById('chat-inp');
+                    if (inp) inp.value = '';
+                    closeInputBar(false);
+                    pendingVisionPrompt = customPrompt || '看看我现在手机屏幕上是什么内容，用你的人设简短聊两句或帮我分析一下。';
+                    isBusy = true;
+                    updateCloseBtnState(true);
+                    setBubbleText('👁️ 正在获取当前屏幕画面...');
+                    if (window.OverlayBridge) {
+                      window.OverlayBridge.requestScreenCapture();
+                    }
+                  }
+
+                  window.onScreenShotCaptured = function(b64Jpeg) {
+                    const q = pendingVisionPrompt || '看看我现在的屏幕，简短聊两句。';
+                    pendingVisionPrompt = '';
+                    askWhaleWithTavernPreset(q, b64Jpeg);
+                  };
+
+                  window.onScreenShotError = function(msg) {
+                    isBusy = false;
+                    updateCloseBtnState(false);
+                    setBubbleText('👁️ 看屏失败：' + (msg || '未获取画面'));
+                    scheduleAutoCollapse(15000);
+                  };
+
                   window.onVoiceResult = function(text) {
                     if (text && text.trim()) {
-                      askWhaleWithTavernPreset(text.trim());
+                      askWhaleWithTavernPreset(text.trim(), null);
                     } else {
                       isBusy = false;
                       updateCloseBtnState(false);
-                      setBubbleText('没听清呢，点「🎤 语音」再试一次吧～');
+                      setBubbleText('没听清呢，点「🎤」再试一次吧～');
                       scheduleAutoCollapse(15000);
                     }
                   };
@@ -2250,7 +3068,7 @@ jobs:
                   window.onVoiceError = function() {
                     isBusy = false;
                     updateCloseBtnState(false);
-                    setBubbleText('没听清呢，点「🎤 语音」再试一次或点「💬 对话」打字吧～');
+                    setBubbleText('没听清呢，点「🎤」再试一次或点「💬 对话」打字吧～');
                     scheduleAutoCollapse(15000);
                   };
 
@@ -2260,7 +3078,7 @@ jobs:
                     if (!txt) return;
                     inp.value = '';
                     closeInputBar(true);
-                    askWhaleWithTavernPreset(txt);
+                    askWhaleWithTavernPreset(txt, null);
                   }
 
                   function replaceTavernMacros(str) {
@@ -2270,6 +3088,8 @@ jobs:
                     }
                     const batStr = `${dev.batteryPct ?? '?'}% (${dev.isCharging ? '充电中' : '未充电'}, ${dev.batteryTempC ?? '?'}°C)`;
                     const notifStr = `未接来电${dev.missedCalls || 0}, 未读短信${dev.unreadSms || 0}, 社交未读${dev.unreadSocial || 0}`;
+                    const mems = getLongTermMemories();
+                    const memStr = mems.length ? mems.join('；') : '暂无特殊长期记忆';
                     return (str || '')
                       .replace(/\{\{char\}\}/g, config.charName || '大肥鱼')
                       .replace(/\{\{user\}\}/g, config.userName || '主人')
@@ -2278,7 +3098,8 @@ jobs:
                       .replace(/\{\{weather\}\}/g, cachedWeather)
                       .replace(/\{\{alarm\}\}/g, dev.nextAlarm || '未设置')
                       .replace(/\{\{notifications\}\}/g, notifStr)
-                      .replace(/\{\{song\}\}/g, dev.currentSong || '暂无播放');
+                      .replace(/\{\{song\}\}/g, dev.currentSong || '暂无播放')
+                      .replace(/\{\{memory\}\}/g, memStr);
                   }
 
                   function hasValidKey() {
@@ -2287,7 +3108,27 @@ jobs:
                       : Boolean(config.apiKey && config.apiKey.trim());
                   }
 
-                  async function askWhaleWithTavernPreset(userMessage) {
+                  function parseAndRunActions(rawReply) {
+                    const tagRegex = /\[\[ACTION:([^\]|]+)(?:\|([^\]|]*))?(?:\|([^\]]*))?\]\]/gi;
+                    let match;
+                    const logs = [];
+                    while ((match = tagRegex.exec(rawReply)) !== null) {
+                      const act = (match[1] || '').trim().toLowerCase();
+                      const a1 = (match[2] || '').trim();
+                      const a2 = (match[3] || '').trim();
+                      if (act === 'save_memory' && a1) {
+                        appendLongTermMemory(a1);
+                        logs.push('已记住：' + a1);
+                      } else if (window.OverlayBridge && config.enableActions !== false) {
+                        const res = window.OverlayBridge.executeAssistantAction(act, a1, a2);
+                        if (res) logs.push(res);
+                      }
+                    }
+                    if (logs.length) showActionToast(logs.join(' | '));
+                    return rawReply.replace(tagRegex, '').trim();
+                  }
+
+                  async function askWhaleWithTavernPreset(userMessage, imageBase64) {
                     reloadPanelConfig();
                     if (!hasValidKey()) {
                       isBusy = false;
@@ -2297,7 +3138,6 @@ jobs:
                       return;
                     }
 
-                    // 如果上一次请求还在跑，先中止上一次
                     if (currentAbortController) {
                       try { currentAbortController.abort(); } catch (_) {}
                     }
@@ -2314,10 +3154,11 @@ jobs:
                     }
 
                     const startMs = Date.now();
-                    setBubbleText('💭 思考中 (0.0s)... [点 ✕ 可随时停止]');
+                    const prefix = imageBase64 ? '👁️ 看屏分析中' : '💭 思考中';
+                    setBubbleText(`${prefix} (0.0s)... [点 ✕ 停止]`);
                     thinkingTicker = setInterval(() => {
                       const sec = ((Date.now() - startMs) / 1000).toFixed(1);
-                      setBubbleText(`💭 思考中 (${sec}s)... [点 ✕ 停止]`);
+                      setBubbleText(`${prefix} (${sec}s)... [点 ✕ 停止]`);
                     }, 200);
 
                     const preset = config.tavernPreset || DEFAULT_TAVERN_PRESET;
@@ -2325,17 +3166,30 @@ jobs:
                     const topEntries = entries.filter(e => e.position !== 'bottom');
                     const bottomEntries = entries.filter(e => e.position === 'bottom');
 
-                    const maxHist = Math.max(2, (parseInt(preset.contextDepth, 10) || 6) * 2);
-                    chatHistory.push({ role: 'user', content: userMessage });
-                    if (chatHistory.length > maxHist) {
-                      chatHistory = chatHistory.slice(-maxHist);
+                    const nowTs = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const displayUserMsg = imageBase64 ? `[👁️看屏] ${userMessage}` : userMessage;
+                    chatHistory.push({ role: 'user', content: displayUserMsg, ts: nowTs });
+                    persistHistory();
+
+                    const depthLimit = Math.max(2, (parseInt(preset.contextDepth, 10) || 6) * 2);
+                    const recentSlice = chatHistory.slice(-depthLimit);
+
+                    const mems = getLongTermMemories();
+                    const rawTopStr = topEntries.map(e => replaceTavernMacros(e.content)).join('\n\n');
+                    let fullSysText = rawTopStr;
+                    if (mems.length && !topEntries.some(e => (e.content || '').includes('{{memory}}'))) {
+                      fullSysText += `\n\n【长期记忆】${mems.join('；')}`;
                     }
+                    if (config.enableActions !== false) {
+                      fullSysText += `\n\n${ACTION_SYSTEM_GUIDE}`;
+                    }
+                    const postText = bottomEntries.map(e => replaceTavernMacros(e.content)).join('\n');
 
                     try {
                       let reply = '';
                       const temp = parseFloat(preset.temperature) || 0.85;
                       const topP = parseFloat(preset.topP) || 0.95;
-                      const maxTok = parseInt(preset.maxTokens, 10) || 140;
+                      const maxTok = parseInt(preset.maxTokens, 10) || 160;
                       const thinkBudget = parseInt(preset.thinkingBudget, 10);
 
                       if (config.apiProvider === 'gemini') {
@@ -2343,25 +3197,18 @@ jobs:
                         const cleanModel = (config.geminiModel || 'gemini-2.5-flash').replace(/^models\//, '');
                         const url = `${base}/models/${cleanModel}:streamGenerateContent?alt=sse&key=${encodeURIComponent(config.geminiApiKey)}`;
 
-                        const sysText = topEntries.map(e => replaceTavernMacros(e.content)).join('\n\n');
-                        const postText = bottomEntries.map(e => replaceTavernMacros(e.content)).join('\n');
-
-                        const geminiContents = chatHistory.map((m, idx) => {
+                        const geminiContents = recentSlice.map((m, idx) => {
                           let txt = m.content;
-                          if (idx === chatHistory.length - 1 && postText) {
-                            txt = `${txt}\n\n${postText}`;
+                          const isLast = idx === recentSlice.length - 1;
+                          if (isLast && postText) txt = `${txt}\n\n${postText}`;
+                          const parts = [{ text: txt }];
+                          if (isLast && imageBase64) {
+                            parts.push({ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } });
                           }
-                          return {
-                            role: m.role === 'assistant' ? 'model' : 'user',
-                            parts: [{ text: txt }]
-                          };
+                          return { role: m.role === 'assistant' ? 'model' : 'user', parts };
                         });
 
-                        const genConfig = {
-                          temperature: temp,
-                          topP: topP,
-                          maxOutputTokens: maxTok
-                        };
+                        const genConfig = { temperature: temp, topP: topP, maxOutputTokens: maxTok };
                         if (!isNaN(thinkBudget) && thinkBudget >= 0 && cleanModel.includes('2.5')) {
                           genConfig.thinkingConfig = { thinkingBudget: thinkBudget };
                         }
@@ -2371,7 +3218,7 @@ jobs:
                           headers: { 'Content-Type': 'application/json' },
                           signal: signal,
                           body: JSON.stringify({
-                            systemInstruction: { parts: [{ text: sysText }] },
+                            systemInstruction: { parts: [{ text: fullSysText }] },
                             contents: geminiContents,
                             generationConfig: genConfig
                           })
@@ -2395,37 +3242,31 @@ jobs:
                               const parts = parsed.candidates?.[0]?.content?.parts || [];
                               const delta = parts.filter(p => !p.thought).map(p => p.text || '').join('');
                               if (delta) {
-                                if (firstChunk) {
-                                  firstChunk = false;
-                                  clearInterval(thinkingTicker);
-                                }
+                                if (firstChunk) { firstChunk = false; clearInterval(thinkingTicker); }
                                 reply += delta;
-                                setBubbleText(reply);
-                                if (window.OverlayBridge) {
-                                  window.OverlayBridge.setPetMoodAndMouth('happy', 0.9);
-                                }
+                                setBubbleText(reply.replace(/\[\[ACTION:[^\]]*\]?\]?/gi, '').trim() || '...');
+                                if (window.OverlayBridge) window.OverlayBridge.setPetMoodAndMouth('happy', 0.9);
                               }
                             } catch (_) {}
                           }
                         }
                       } else {
-                        const oaiMessages = [];
-                        topEntries.forEach(e => {
-                          oaiMessages.push({ role: e.role || 'system', content: replaceTavernMacros(e.content) });
+                        const oaiMessages = [{ role: 'system', content: fullSysText }];
+                        recentSlice.forEach((m, idx) => {
+                          const isLast = idx === recentSlice.length - 1;
+                          if (isLast && imageBase64) {
+                            oaiMessages.push({
+                              role: 'user',
+                              content: [
+                                { type: 'text', text: m.content },
+                                { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + imageBase64 } }
+                              ]
+                            });
+                          } else {
+                            oaiMessages.push({ role: m.role, content: m.content });
+                          }
                         });
-                        chatHistory.forEach(m => oaiMessages.push({ role: m.role, content: m.content }));
-                        bottomEntries.forEach(e => {
-                          oaiMessages.push({ role: e.role || 'system', content: replaceTavernMacros(e.content) });
-                        });
-
-                        const bodyObj = {
-                          model: config.model || 'deepseek-chat',
-                          stream: true,
-                          temperature: temp,
-                          top_p: topP,
-                          max_tokens: maxTok,
-                          messages: oaiMessages
-                        };
+                        if (postText) oaiMessages.push({ role: 'system', content: postText });
 
                         const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
                           method: 'POST',
@@ -2434,7 +3275,14 @@ jobs:
                             'Authorization': `Bearer ${config.apiKey}`
                           },
                           signal: signal,
-                          body: JSON.stringify(bodyObj)
+                          body: JSON.stringify({
+                            model: config.model || 'deepseek-chat',
+                            stream: true,
+                            temperature: temp,
+                            top_p: topP,
+                            max_tokens: maxTok,
+                            messages: oaiMessages
+                          })
                         });
                         if (!res.ok) throw new Error('OpenAI HTTP ' + res.status);
 
@@ -2454,15 +3302,10 @@ jobs:
                               const parsed = JSON.parse(payload);
                               const delta = parsed.choices?.[0]?.delta?.content || '';
                               if (delta) {
-                                if (firstChunk) {
-                                  firstChunk = false;
-                                  clearInterval(thinkingTicker);
-                                }
+                                if (firstChunk) { firstChunk = false; clearInterval(thinkingTicker); }
                                 reply += delta;
-                                setBubbleText(reply);
-                                if (window.OverlayBridge) {
-                                  window.OverlayBridge.setPetMoodAndMouth('happy', 0.9);
-                                }
+                                setBubbleText(reply.replace(/\[\[ACTION:[^\]]*\]?\]?/gi, '').trim() || '...');
+                                if (window.OverlayBridge) window.OverlayBridge.setPetMoodAndMouth('happy', 0.9);
                               }
                             } catch (_) {}
                           }
@@ -2470,27 +3313,22 @@ jobs:
                       }
 
                       clearInterval(thinkingTicker);
-                      if (!reply.trim()) {
-                        reply = '（歪了歪头，没有发出声音～）';
-                        setBubbleText(reply);
-                      }
-                      lastReplyText = reply;
-                      chatHistory.push({ role: 'assistant', content: reply });
+                      const cleanReply = parseAndRunActions(reply);
+                      const finalTxt = cleanReply || '（完成了操作，微笑着点点头～）';
+                      setBubbleText(finalTxt);
+                      lastReplyText = finalTxt;
+                      chatHistory.push({ role: 'assistant', content: finalTxt, ts: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+                      persistHistory();
                     } catch (err) {
                       clearInterval(thinkingTicker);
-                      if (err && err.name === 'AbortError') {
-                        // 用户主动点击了 ✕ 停止生成，不报错
-                        return;
-                      }
+                      if (err && err.name === 'AbortError') return;
                       setBubbleText('请求出错 (' + err.message + ')，请检查接口设置～');
                     } finally {
                       clearInterval(thinkingTicker);
                       isBusy = false;
                       currentAbortController = null;
                       updateCloseBtnState(false);
-                      if (window.OverlayBridge) {
-                        window.OverlayBridge.setPetMoodAndMouth('happy', 0);
-                      }
+                      if (window.OverlayBridge) window.OverlayBridge.setPetMoodAndMouth('happy', 0);
                       scheduleAutoCollapse(28000);
                     }
                   }
@@ -2509,25 +3347,21 @@ jobs:
                     const prompt = replaceTavernMacros(
                       '[定时主动关怀触发] 此刻状态：时间={{time}}，电量={{battery}}，天气={{weather}}，闹钟={{alarm}}，通知={{notifications}}，正在听的歌={{song}}。请挑一两个最值得注意的点，主动跟{{user}}搭一句话。'
                     );
-                    askWhaleWithTavernPreset(prompt);
+                    askWhaleWithTavernPreset(prompt, null);
                   };
 
                   setInterval(() => {
-                    if (isScreenOn && !isBusy) {
-                      window.triggerHalfHourContextChat(false);
-                    }
+                    if (isScreenOn && !isBusy) window.triggerHalfHourContextChat(false);
                   }, 30 * 60 * 1000);
 
-                  window.onScreenStateChanged = function(on) {
-                    isScreenOn = Boolean(on);
-                  };
+                  window.onScreenStateChanged = function(on) { isScreenOn = Boolean(on); };
 
                   window.onNativeInstantEvent = function(type, defaultLine) {
                     if (!isScreenOn) return;
                     setBubbleText(defaultLine);
                     scheduleAutoCollapse(20000);
                     if (hasValidKey() && !isBusy) {
-                      askWhaleWithTavernPreset(`[手机刚刚发生即时事件：${type}（${defaultLine}）] 请立即跟{{user}}说一句简短贴心的提醒或互动。`);
+                      askWhaleWithTavernPreset(`[手机刚刚发生即时事件：${type}（${defaultLine}）] 请立即跟{{user}}说一句简短贴心的提醒或互动。`, null);
                     }
                   };
 
@@ -2536,7 +3370,7 @@ jobs:
                     if (!isScreenOn || !songInfo || songInfo === lastReactedSong || isBusy) return;
                     lastReactedSong = songInfo;
                     if (hasValidKey()) {
-                      askWhaleWithTavernPreset(`[播放器切歌通知] 我刚刚开始播放歌曲《${songInfo}》，请作为陪我听歌的{{char}}简短点评或哼两句互动！`);
+                      askWhaleWithTavernPreset(`[播放器切歌通知] 我刚刚开始播放歌曲《${songInfo}》，请作为陪我听歌的{{char}}简短点评或互动一句！`, null);
                     } else if (window.OverlayBridge) {
                       window.OverlayBridge.expandPanel('greet', false);
                       setBubbleText(`🎵 正在陪你听：《${songInfo}》`);
@@ -2544,13 +3378,14 @@ jobs:
                     }
                   };
 
+                  loadSavedHistory();
                   reloadPanelConfig();
                 </script>
               </body>
               </html>
               """).lstrip())
 
-          # 10. 生成主程序控制台页面 control-panel.html（新增「自定义角色贴图更换面板」+ 真实闹钟展示 + 酒馆预设编辑器）
+          # 13. 生成主程序控制台 control-panel.html（新增：白名单自由编辑、Shizuku 授权面板、长期记忆本、SAF 原生 .json 文件导出/导入）
           with open(os.path.join(www_dir, 'control-panel.html'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
               <!DOCTYPE html>
@@ -2558,18 +3393,12 @@ jobs:
               <head>
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                <title>大肥鱼全局伴侣 v7 · 控制台</title>
+                <title>大肥鱼全局 AI 助理 v8 · 控制台</title>
                 <style>
-                  :root {
-                    --bg: #0f172a;
-                    --card: #1e293b;
-                    --accent: #38bdf8;
-                    --text: #f8fafc;
-                    --mute: #94a3b8;
-                  }
+                  :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --mute: #94a3b8; }
                   * { box-sizing: border-box; }
                   body {
-                    margin: 0; padding: 16px 14px 56px; background: var(--bg); color: var(--text);
+                    margin: 0; padding: 16px 14px 60px; background: var(--bg); color: var(--text);
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                   }
                   .header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
@@ -2578,21 +3407,23 @@ jobs:
                     background: var(--card); border: 1px solid rgba(255,255,255,0.1);
                     border-radius: 16px; padding: 14px; margin-bottom: 14px;
                   }
-                  .card h3 {
-                    margin: 0 0 10px; font-size: 14.5px; display: flex; justify-content: space-between; align-items: center;
-                  }
+                  .card h3 { margin: 0 0 10px; font-size: 14.5px; display: flex; justify-content: space-between; align-items: center; }
                   .btn {
                     background: #0284c7; color: #fff; border: none; border-radius: 999px;
-                    padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;
-                    margin-top: 8px;
+                    padding: 10px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 8px;
                   }
                   .btn.secondary { background: #334155; color: #e2e8f0; }
                   .btn.connect { background: #0d9488; color: #ffffff; }
+                  .btn.shizuku { background: #6366f1; color: #ffffff; }
+                  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+                  .chip {
+                    font-size: 11px; padding: 4px 9px; border-radius: 999px; cursor: pointer;
+                    background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35);
+                  }
                   .provider-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
                   .tab-btn {
                     background: #0f172a; color: var(--mute); border: 1.5px solid rgba(255,255,255,0.12);
-                    border-radius: 12px; padding: 9px 6px; font-size: 12.5px; font-weight: 600;
-                    cursor: pointer; text-align: center;
+                    border-radius: 12px; padding: 9px 6px; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center;
                   }
                   .tab-btn.active { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: #38bdf8; }
                   .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; }
@@ -2601,7 +3432,7 @@ jobs:
                     border: 1px solid rgba(255,255,255,0.06);
                   }
                   .stat-item span { display: block; color: var(--mute); font-size: 11px; margin-bottom: 2px; }
-                  .stat-item b { font-size: 12.5px; color: #38bdf8; }
+                  .stat-item b { font-size: 12px; color: #38bdf8; word-break: break-word; }
                   .field { margin-bottom: 10px; }
                   .field label { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); margin-bottom: 4px; }
                   .field input, .field select, .field textarea {
@@ -2609,26 +3440,26 @@ jobs:
                     border: 1px solid rgba(255,255,255,0.16); background: #0f172a; color: var(--text); font-size: 12.5px;
                   }
                   input[type="range"] { padding: 0; accent-color: var(--accent); }
-                  .st-entry {
+                  .st-entry, .mem-item {
                     background: rgba(15, 23, 42, 0.78); border: 1px solid rgba(56, 189, 248, 0.25);
-                    border-radius: 12px; padding: 10px; margin-bottom: 10px;
+                    border-radius: 12px; padding: 10px; margin-bottom: 8px;
                   }
-                  .st-entry-head {
-                    display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12.5px; font-weight: 600;
-                  }
-                  .sprite-preview-row {
-                    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
-                  }
+                  .mem-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; }
+                  .st-entry-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12.5px; font-weight: 600; }
+                  .sprite-preview-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
                   .sprite-box {
                     background: rgba(15, 23, 42, 0.7); border: 1px dashed rgba(56, 189, 248, 0.4);
                     border-radius: 12px; padding: 10px; text-align: center;
                   }
-                  .sprite-box img {
-                    width: 64px; height: 64px; object-fit: contain; display: block; margin: 0 auto 6px;
+                  .sprite-box img { width: 64px; height: 64px; object-fit: contain; display: block; margin: 0 auto 6px; }
+                  #connect-status { font-size: 12px; margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: rgba(15, 23, 42, 0.7); display: none; }
+                  #json-modal {
+                    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+                    z-index: 999; padding: 20px; align-items: center; justify-content: center;
                   }
-                  #connect-status {
-                    font-size: 12px; margin-top: 8px; padding: 8px 12px; border-radius: 10px;
-                    background: rgba(15, 23, 42, 0.7); display: none;
+                  .modal-inner {
+                    background: #1e293b; border: 1px solid #38bdf8; border-radius: 16px;
+                    padding: 14px; width: 100%; max-width: 460px;
                   }
                 </style>
               </head>
@@ -2636,28 +3467,71 @@ jobs:
                 <div class="header">
                   <img id="top-avatar-img" src="whale-official-icon.png" onerror="this.style.display='none'" />
                   <div>
-                    <h2 style="margin:0; font-size:17px;">🐟 大肥鱼全局伴侣 v7</h2>
-                    <p style="margin:3px 0 0; font-size:11.5px; color:var(--mute);">自定义角色贴图 · 80%/40%电量提醒 · 真实闹钟与酒馆预设</p>
+                    <h2 style="margin:0; font-size:17px;">🐟 大肥鱼全局 AI 助理 v8</h2>
+                    <p style="margin:3px 0 0; font-size:11.5px; color:var(--mute);">Shizuku + Common Intents · 看屏 · 白名单识曲 · 长期记忆 · 原生文件导入导出</p>
                   </div>
                 </div>
 
-                <!-- 1. 悬浮球开关与权限 -->
+                <!-- 1. 悬浮球与核心权限 -->
                 <div class="card">
                   <h3>
-                    <span>🚀 第一步：开启零遮挡悬浮球与识曲授权</span>
+                    <span>🚀 第一步：悬浮球、通知重连与 Shizuku 授权</span>
                     <span id="overlay-badge" style="font-size:12px; color:#38bdf8;">检测中...</span>
                   </h3>
                   <button class="btn" id="btn-toggle-overlay" onclick="MainBridge.toggleFloatingOverlay()">开启全局悬浮桌宠</button>
                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;">
-                    <button class="btn secondary" onclick="MainBridge.openNotificationAccessSettings()">🔔 授权通知/Salt Player 识曲</button>
-                    <button class="btn secondary" onclick="toggleSysAudio()">🎧 开启系统内录律动</button>
+                    <button class="btn secondary" id="btn-notif-perm" onclick="MainBridge.openNotificationAccessSettings()">🔔 通知监听权限</button>
+                    <button class="btn shizuku" id="btn-shizuku" onclick="MainBridge.requestShizukuPermission()">⚡ 授权 Shizuku</button>
                   </div>
-                  <button class="btn secondary" onclick="MainBridge.triggerTestContextGreeting()">✨ 立即测试根据手机/音乐状态搭话</button>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;">
+                    <button class="btn secondary" onclick="toggleSysAudio()">🎧 系统内录律动</button>
+                    <button class="btn secondary" onclick="MainBridge.triggerTestContextGreeting()">✨ 测试状态搭话</button>
+                  </div>
+                  <p id="perm-hint" style="font-size:11px; color:var(--mute); margin:8px 0 0; line-height:1.45;">
+                    红米 HyperOS 建议在系统应用详情中开启「自启动」并设为「省电无限制」，重启后即可自动重连通知监听。
+                  </p>
                 </div>
 
-                <!-- 2. 自定义角色贴图与尺寸调节 -->
+                <!-- 2. 音乐监听白名单与动手能力开关 -->
                 <div class="card">
-                  <h3>🖼️ 第二步：自定义角色贴图与大小调节</h3>
+                  <h3>🎵 第二步：音乐白名单与 AI 动手能力</h3>
+                  <div class="field">
+                    <label><span>仅监听以下包名的音乐播放（逗号或换行分隔，彻底杜绝多软件冲突）</span></label>
+                    <textarea id="cfg-music-whitelist" rows="2" placeholder="com.salt.music" onchange="saveAllConfig(false)"></textarea>
+                    <div class="chip-row">
+                      <span class="chip" onclick="addWhitelistPkg('com.salt.music')">+ 椒盐音乐</span>
+                      <span class="chip" onclick="addWhitelistPkg('com.netease.cloudmusic')">+ 网易云</span>
+                      <span class="chip" onclick="addWhitelistPkg('com.tencent.qqmusic')">+ QQ音乐</span>
+                      <span class="chip" onclick="addWhitelistPkg('com.apple.android.music')">+ Apple Music</span>
+                    </div>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:end;">
+                    <div class="field" style="margin-bottom:0;">
+                      <label><span>切歌点评冷却时间（秒）</span></label>
+                      <input type="number" id="cfg-song-cooldown" value="120" min="10" onchange="saveAllConfig(false)" />
+                    </div>
+                    <div class="field" style="margin-bottom:0;">
+                      <label style="align-items:center; gap:6px; justify-content:flex-start; color:#f8fafc; padding:8px 0;">
+                        <input type="checkbox" id="cfg-enable-actions" checked style="width:auto;" onchange="saveAllConfig(false)" />
+                        <span>⚡ 启用 AI 动手能力（切歌/闹钟/开App/Shizuku）</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3. 长期记忆本 -->
+                <div class="card">
+                  <h3>🧠 第三步：长期记忆本（自动注入每次对话）</h3>
+                  <div style="display:flex; gap:6px; margin-bottom:10px;">
+                    <input id="new-mem-input" placeholder="例如：我每天早上7点半起床 / 喜欢喝冰美式..." style="flex:1; padding:8px 10px; border-radius:9px; border:1px solid rgba(255,255,255,0.16); background:#0f172a; color:#f8fafc; font-size:12.5px;" />
+                    <button class="btn" style="width:auto; margin-top:0; padding:8px 14px;" onclick="addMemoryFromUi()">添加</button>
+                  </div>
+                  <div id="mem-list-container"></div>
+                </div>
+
+                <!-- 4. 自定义贴图与大小 -->
+                <div class="card">
+                  <h3>🖼️ 第四步：自定义角色贴图与大小调节</h3>
                   <div class="sprite-preview-row">
                     <div class="sprite-box">
                       <img id="prev-idle-img" src="whale-official-icon.png" />
@@ -2671,156 +3545,112 @@ jobs:
                     </div>
                   </div>
                   <button class="btn secondary" style="margin-top:0; margin-bottom:12px;" onclick="MainBridge.resetCustomSprites()">🔄 恢复默认大肥鱼贴图</button>
-
                   <div class="field">
-                    <label>
-                      <span>桌宠大小（32dp 超迷你 ~ 58dp QQ企鹅同款 ~ 150dp）</span>
-                      <b id="lbl-size" style="color:#38bdf8;">58 dp</b>
-                    </label>
+                    <label><span>桌宠大小（32dp ~ 150dp）</span><b id="lbl-size" style="color:#38bdf8;">58 dp</b></label>
                     <input type="range" id="cfg-size" min="32" max="150" step="2" value="58" oninput="onSizeSliderChange(this.value)" />
                   </div>
-                  <div class="field">
-                    <label><span>气泡字体缩放</span></label>
-                    <select id="cfg-font" onchange="saveAllConfig(false)">
-                      <option value="90">90%（紧凑精致）</option>
-                      <option value="100" selected>100%（标准）</option>
-                      <option value="120">120%（偏大）</option>
-                      <option value="140">140%（特大）</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label><span>色彩滤镜主题（对自定义贴图同样生效）</span></label>
-                    <select id="cfg-scheme" onchange="saveAllConfig(false)">
-                      <option value="deepseek_blue">🌊 原色 / 默认无滤镜</option>
-                      <option value="claude_amber">🍯 暖阳琥珀橘</option>
-                      <option value="sakura_pink">🌸 樱花元气粉</option>
-                      <option value="mint_emerald">🌿 薄荷翡翠绿</option>
-                      <option value="violet_dream">🔮 幻境星云紫</option>
-                      <option value="sunset_coral">🌇 落日珊瑚红</option>
-                      <option value="cyber_cyan">⚡ 赛博霓虹青</option>
-                      <option value="moonlight_silver">🌙 月光银灰</option>
-                    </select>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <div class="field">
+                      <label><span>气泡字体缩放</span></label>
+                      <select id="cfg-font" onchange="saveAllConfig(false)">
+                        <option value="90">90%</option>
+                        <option value="100" selected>100%</option>
+                        <option value="120">120%</option>
+                        <option value="140">140%</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label><span>色彩滤镜主题</span></label>
+                      <select id="cfg-scheme" onchange="saveAllConfig(false)">
+                        <option value="deepseek_blue">🌊 默认无滤镜</option>
+                        <option value="claude_amber">🍯 暖阳琥珀橘</option>
+                        <option value="sakura_pink">🌸 樱花元气粉</option>
+                        <option value="mint_emerald">🌿 薄荷翡翠绿</option>
+                        <option value="violet_dream">🔮 幻境星云紫</option>
+                        <option value="cyber_cyan">⚡ 赛博霓虹青</option>
+                        <option value="moonlight_silver">🌙 月光银灰</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                <!-- 3. 酒馆（SillyTavern）风格预设与极速秒回编辑器 -->
+                <!-- 5. 酒馆预设编辑器 + 原生文件导入导出 -->
                 <div class="card">
-                  <h3>🍺 第三步：酒馆风（SillyTavern）预设与思考耗时控制</h3>
+                  <h3>🍺 第五步：酒馆风预设与 .json 文件导入/导出</h3>
                   <div class="field">
-                    <label><span>⚡ 思考耗时控制（Thinking Budget · 解决思考太慢核心开关！）</span></label>
+                    <label><span>⚡ 思考耗时控制 (Thinking Budget)</span></label>
                     <select id="st-thinking" onchange="saveAllConfig(false)">
-                      <option value="0">🚀 0（彻底关闭思考链 · 0.5秒极速秒回！）</option>
-                      <option value="256">⚡ 256 Tokens（极简轻度思考 · 约1.5秒）</option>
+                      <option value="0">🚀 0（彻底关闭思考链 · 极速秒回）</option>
+                      <option value="256">⚡ 256 Tokens（轻度思考）</option>
                       <option value="1024">🧠 1024 Tokens（中度思考）</option>
-                      <option value="-1">🐢 模型默认思考（耗时较长）</option>
+                      <option value="-1">🐢 模型默认思考</option>
                     </select>
                   </div>
                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                    <div class="field">
-                      <label><span>温度 (Temperature)</span></label>
-                      <input type="number" step="0.05" id="st-temp" value="0.85" onchange="saveAllConfig(false)" />
-                    </div>
-                    <div class="field">
-                      <label><span>最大回复字数 (Max Tokens)</span></label>
-                      <input type="number" id="st-max-tokens" value="140" onchange="saveAllConfig(false)" />
-                    </div>
-                    <div class="field">
-                      <label><span>角色名 ({{char}})</span></label>
-                      <input id="cfg-char-name" value="大肥鱼" onchange="saveAllConfig(false)" />
-                    </div>
-                    <div class="field">
-                      <label><span>你的称呼 ({{user}})</span></label>
-                      <input id="cfg-user-name" value="主人" onchange="saveAllConfig(false)" />
-                    </div>
+                    <div class="field"><label><span>温度 (Temperature)</span></label><input type="number" step="0.05" id="st-temp" value="0.85" onchange="saveAllConfig(false)" /></div>
+                    <div class="field"><label><span>最大回复字数 (Max Tokens)</span></label><input type="number" id="st-max-tokens" value="160" onchange="saveAllConfig(false)" /></div>
+                    <div class="field"><label><span>角色名 ({{char}})</span></label><input id="cfg-char-name" value="大肥鱼" onchange="saveAllConfig(false)" /></div>
+                    <div class="field"><label><span>你的称呼 ({{user}})</span></label><input id="cfg-user-name" value="主人" onchange="saveAllConfig(false)" /></div>
                   </div>
-
-                  <p style="font-size:11.5px; color:var(--mute); margin:6px 0 8px;">
-                    👇 <b>酒馆模块化提示词条目</b>（更换其他角色贴图后，可直接修改下方角色设定卡）：
-                  </p>
                   <div id="st-entries-container"></div>
-
                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                    <button class="btn secondary" onclick="exportTavernPreset()">📤 导出预设 JSON</button>
-                    <button class="btn secondary" onclick="importTavernPreset()">📥 导入预设 JSON</button>
+                    <button class="btn connect" onclick="exportPresetFile()">📤 导出为 .json 文件</button>
+                    <button class="btn connect" onclick="importPresetFile()">📥 从 .json 文件导入</button>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;">
+                    <button class="btn secondary" onclick="openJsonModal('export')">📋 复制预设文本</button>
+                    <button class="btn secondary" onclick="openJsonModal('import')">📝 粘贴文本导入</button>
                   </div>
                 </div>
 
-                <!-- 4. AI 接口配置与模型拉取 -->
+                <!-- 6. AI 接口配置 -->
                 <div class="card">
-                  <h3>🔌 第四步：AI 接口与一键拉取模型</h3>
+                  <h3>🔌 第六步：AI 接口与模型拉取</h3>
                   <div class="provider-tabs">
-                    <div class="tab-btn active" id="tab-gemini" onclick="switchProviderTab('gemini')">✨ Google AI Studio<br><span style="font-size:11px;font-weight:400;">官方 Gemini 接口</span></div>
+                    <div class="tab-btn active" id="tab-gemini" onclick="switchProviderTab('gemini')">✨ Google AI Studio<br><span style="font-size:11px;font-weight:400;">官方 Gemini（原生支持看屏）</span></div>
                     <div class="tab-btn" id="tab-openai" onclick="switchProviderTab('openai')">🌐 第三方 OpenAI 格式<br><span style="font-size:11px;font-weight:400;">DeepSeek / 硅基 / NewAPI</span></div>
                   </div>
-
                   <div id="panel-gemini">
-                    <div class="field">
-                      <label><span>Google AI Studio API Key</span></label>
-                      <input id="cfg-gemini-key" type="password" placeholder="AIzaSy..." />
-                    </div>
-                    <div class="field">
-                      <label><span>Gemini 接口地址</span></label>
-                      <input id="cfg-gemini-url" placeholder="https://generativelanguage.googleapis.com/v1beta" />
-                    </div>
+                    <div class="field"><label><span>Google AI Studio API Key</span></label><input id="cfg-gemini-key" type="password" placeholder="AIzaSy..." /></div>
+                    <div class="field"><label><span>Gemini 接口地址</span></label><input id="cfg-gemini-url" placeholder="https://generativelanguage.googleapis.com/v1beta" /></div>
                     <button class="btn connect" onclick="connectAndFetchModels('gemini')">🔗 连接 Google AI Studio 并拉取可用模型</button>
-                    <div class="field" style="margin-top:10px;">
-                      <label><span>选择拉取到的 Gemini 模型</span></label>
-                      <select id="sel-gemini-models" onchange="if(this.value) document.getElementById('cfg-gemini-model').value=this.value; saveAllConfig(false);">
-                        <option value="gemini-2.5-flash">gemini-2.5-flash（推荐 · 配思考预算0秒回）</option>
-                        <option value="gemini-2.0-flash">gemini-2.0-flash（无思考链 · 天生秒回）</option>
-                        <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label><span>当前使用的 Gemini 模型 ID</span></label>
-                      <input id="cfg-gemini-model" placeholder="gemini-2.5-flash" />
-                    </div>
+                    <div class="field" style="margin-top:10px;"><label><span>选择拉取到的 Gemini 模型</span></label><select id="sel-gemini-models" onchange="if(this.value) document.getElementById('cfg-gemini-model').value=this.value; saveAllConfig(false);"><option value="gemini-2.5-flash">gemini-2.5-flash</option><option value="gemini-2.0-flash">gemini-2.0-flash</option></select></div>
+                    <div class="field"><label><span>当前使用的 Gemini 模型 ID</span></label><input id="cfg-gemini-model" placeholder="gemini-2.5-flash" /></div>
                   </div>
-
                   <div id="panel-openai" style="display:none;">
-                    <div class="field">
-                      <label><span>API Base URL</span></label>
-                      <input id="cfg-base-url" placeholder="https://api.deepseek.com/v1" />
-                    </div>
-                    <div class="field">
-                      <label><span>API Key</span></label>
-                      <input id="cfg-api-key" type="password" placeholder="sk-..." />
-                    </div>
+                    <div class="field"><label><span>API Base URL</span></label><input id="cfg-base-url" placeholder="https://api.deepseek.com/v1" /></div>
+                    <div class="field"><label><span>API Key</span></label><input id="cfg-api-key" type="password" placeholder="sk-..." /></div>
                     <button class="btn connect" onclick="connectAndFetchModels('openai')">🔗 连接第三方接口并拉取可用模型</button>
-                    <div class="field" style="margin-top:10px;">
-                      <label><span>选择拉取到的可用模型</span></label>
-                      <select id="sel-openai-models" onchange="if(this.value) document.getElementById('cfg-model').value=this.value; saveAllConfig(false);">
-                        <option value="deepseek-chat">deepseek-chat</option>
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label><span>当前使用的对话模型 ID</span></label>
-                      <input id="cfg-model" placeholder="deepseek-chat" />
-                    </div>
+                    <div class="field" style="margin-top:10px;"><label><span>选择拉取到的可用模型</span></label><select id="sel-openai-models" onchange="if(this.value) document.getElementById('cfg-model').value=this.value; saveAllConfig(false);"><option value="deepseek-chat">deepseek-chat</option></select></div>
+                    <div class="field"><label><span>当前使用的对话模型 ID</span></label><input id="cfg-model" placeholder="deepseek-chat" /></div>
                   </div>
-
                   <div id="connect-status"></div>
-                  <div class="field" style="margin-top:10px;">
-                    <label><span>默认城市名（用于查询免 Key 实时天气）</span></label>
-                    <input id="cfg-city" placeholder="Shanghai" />
-                  </div>
+                  <div class="field" style="margin-top:10px;"><label><span>默认城市名（天气查询）</span></label><input id="cfg-city" placeholder="Shanghai" /></div>
                   <button class="btn" onclick="saveAllConfig(true)">💾 保存全部设置并同步给悬浮球</button>
                 </div>
 
-                <!-- 5. 手机与 Salt Player 识曲状态实时监控 -->
+                <!-- 7. 实时状态监控 -->
                 <div class="card">
-                  <h3>
-                    <span>📱 手机与 Salt Player 音乐实时状态</span>
-                    <span style="font-size:11px; color:var(--mute); cursor:pointer;" onclick="refreshDashboard()">🔄 刷新</span>
-                  </h3>
+                  <h3><span>📱 手机与权限实时监控</span><span style="font-size:11px; color:var(--mute); cursor:pointer;" onclick="refreshDashboard()">🔄 刷新</span></h3>
                   <div class="status-grid">
-                    <div class="stat-item"><span>电量与温度（80%/40%自动提醒）</span><b id="st-battery">--</b></div>
-                    <div class="stat-item"><span>下一个真实闹钟（已过滤00:00伪闹钟）</span><b id="st-alarm">--</b></div>
+                    <div class="stat-item"><span>电量与温度</span><b id="st-battery">--</b></div>
+                    <div class="stat-item"><span>下一个真实闹钟</span><b id="st-alarm">--</b></div>
+                    <div class="stat-item"><span>通知监听状态</span><b id="st-notif">--</b></div>
+                    <div class="stat-item"><span>Shizuku 状态</span><b id="st-shizuku">--</b></div>
                     <div class="stat-item"><span>未接来电 / 未读短信</span><b id="st-calls-sms">--</b></div>
-                    <div class="stat-item"><span>未读微信与社交消息</span><b id="st-social">--</b></div>
-                    <div class="stat-item" style="grid-column: span 2;">
-                      <span>🎵 正在播放歌曲（支持 Salt Player / 椒盐音乐 MediaSession）</span>
-                      <b id="st-song">暂无播放</b>
+                    <div class="stat-item"><span>未读微信与社交</span><b id="st-social">--</b></div>
+                    <div class="stat-item" style="grid-column: span 2;"><span>🎵 白名单播放器当前歌曲</span><b id="st-song">暂无播放</b></div>
+                  </div>
+                </div>
+
+                <!-- 复制/粘贴 JSON 弹窗 -->
+                <div id="json-modal">
+                  <div class="modal-inner">
+                    <h4 id="modal-title" style="margin:0 0 8px; color:#38bdf8;">预设 JSON</h4>
+                    <textarea id="modal-textarea" rows="10" style="width:100%; padding:8px; border-radius:10px; background:#0f172a; color:#f8fafc; border:1px solid rgba(255,255,255,0.2); font-size:11.5px;"></textarea>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                      <button class="btn connect" id="modal-confirm-btn" onclick="onModalConfirm()">确定</button>
+                      <button class="btn secondary" onclick="document.getElementById('json-modal').style.display='none'">关闭</button>
                     </div>
                   </div>
                 </div>
@@ -2831,49 +3661,14 @@ jobs:
                     thinkingBudget: 0,
                     temperature: 0.85,
                     topP: 0.95,
-                    maxTokens: 140,
+                    maxTokens: 160,
                     contextDepth: 6,
                     entries: [
-                      {
-                        id: 'main_sys',
-                        name: '1. 主系统指令 (Main Prompt)',
-                        enabled: true,
-                        role: 'system',
-                        position: 'top',
-                        content: '你将扮演住在用户手机屏幕边缘的桌面宠物「{{char}}」与「{{user}}」互动。直接输出{{char}}说的台词，不要输出任何动作括号描写、心理活动或思考过程。'
-                      },
-                      {
-                        id: 'char_card',
-                        name: '2. 角色设定卡 (Character Card)',
-                        enabled: true,
-                        role: 'system',
-                        position: 'top',
-                        content: '{{char}}是一只蓝白配色的小鲸鱼娘（大肥鱼），性格灵动粘人、温柔俏皮，偶尔爱吐槽。称呼{{user}}为“主人”。'
-                      },
-                      {
-                        id: 'user_persona',
-                        name: '3. 用户人设 (User Persona)',
-                        enabled: true,
-                        role: 'system',
-                        position: 'top',
-                        content: '{{user}}是{{char}}最信赖的伙伴，日常带着手机听歌、看视频、聊天。'
-                      },
-                      {
-                        id: 'world_info_phone',
-                        name: '4. 世界书：手机状态与音乐注入 (World Info)',
-                        enabled: true,
-                        role: 'system',
-                        position: 'top',
-                        content: '【当前手机实时状态】时间:{{time}} | 电量:{{battery}} | 天气:{{weather}} | 闹钟:{{alarm}} | 通知:{{notifications}} | 正在播放音乐:{{song}}。仅在话题相关或主动关怀时自然提及。'
-                      },
-                      {
-                        id: 'post_history_jb',
-                        name: '5. 尾置强约束 (Post-History 秒回短句约束)',
-                        enabled: true,
-                        role: 'system',
-                        position: 'bottom',
-                        content: '[输出铁律：严禁输出思维链，直接用口语回复1~2句话，总字数严格控制在55字以内！]'
-                      }
+                      { id: 'main_sys', name: '1. 主系统指令 (Main Prompt)', enabled: true, role: 'system', position: 'top', content: '你将扮演住在用户手机屏幕边缘的桌面宠物「{{char}}」与「{{user}}」互动。直接输出{{char}}说的台词，不要输出任何动作括号描写、心理活动或思考过程。' },
+                      { id: 'char_card', name: '2. 角色设定卡 (Character Card)', enabled: true, role: 'system', position: 'top', content: '{{char}}是一只蓝白配色的小鲸鱼娘（大肥鱼），性格灵动粘人、温柔俏皮，偶尔爱吐槽。称呼{{user}}为“主人”。' },
+                      { id: 'user_persona', name: '3. 用户人设 (User Persona)', enabled: true, role: 'system', position: 'top', content: '{{user}}是{{char}}最信赖的伙伴，日常带着手机听歌、看视频、聊天。' },
+                      { id: 'world_info_phone', name: '4. 世界书：手机状态与长期记忆注入', enabled: true, role: 'system', position: 'top', content: '【当前手机实时状态】时间:{{time}} | 电量:{{battery}} | 天气:{{weather}} | 闹钟:{{alarm}} | 通知:{{notifications}} | 正在播放音乐:{{song}}。\n【长期记忆】{{memory}}' },
+                      { id: 'post_history_jb', name: '5. 尾置强约束 (秒回短句约束)', enabled: true, role: 'system', position: 'bottom', content: '[输出铁律：严禁输出思维链，直接用口语回复1~2句话，总字数严格控制在65字以内！]' }
                     ]
                   };
 
@@ -2885,19 +3680,159 @@ jobs:
                     baseUrl: 'https://api.deepseek.com/v1',
                     apiKey: '',
                     model: 'deepseek-chat',
-                    asrModel: 'FunAudioLLM/SenseVoiceSmall',
                     petSizeDp: 58,
                     fontScale: 100,
                     colorScheme: 'deepseek_blue',
                     cityFallback: 'Shanghai',
-                    autoVideoComment: false,
                     userName: '主人',
                     charName: '大肥鱼',
+                    musicWhitelist: 'com.salt.music',
+                    songCooldownSec: 120,
+                    enableActions: true,
                     tavernPreset: DEFAULT_TAVERN_PRESET
                   };
 
                   let currentProvider = 'gemini';
                   let currentEntries = JSON.parse(JSON.stringify(DEFAULT_TAVERN_PRESET.entries));
+                  let modalMode = 'export';
+
+                  function getMemories() {
+                    try { const a = JSON.parse(localStorage.getItem('whale_v8_memories') || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; }
+                  }
+
+                  function renderMemories() {
+                    const box = document.getElementById('mem-list-container');
+                    const arr = getMemories();
+                    if (!arr.length) {
+                      box.innerHTML = '<div style="font-size:11.5px; color:var(--mute);">暂无长期记忆。你可以手动添加，也可以在聊天中直接说“记住我喜欢喝冰美式”。</div>';
+                      return;
+                    }
+                    box.innerHTML = arr.map((m, i) => `
+                      <div class="mem-item">
+                        <span>• ${m.replace(/</g, '&lt;')}</span>
+                        <span style="color:#f87171; cursor:pointer; font-size:11.5px; white-space:nowrap;" onclick="deleteMemory(${i})">删除</span>
+                      </div>
+                    `).join('');
+                  }
+
+                  window.addMemoryFromUi = function() {
+                    const inp = document.getElementById('new-mem-input');
+                    const val = inp.value.trim();
+                    if (!val) return;
+                    const arr = getMemories();
+                    arr.push(val);
+                    localStorage.setItem('whale_v8_memories', JSON.stringify(arr));
+                    inp.value = '';
+                    renderMemories();
+                  };
+
+                  window.deleteMemory = function(idx) {
+                    const arr = getMemories();
+                    arr.splice(idx, 1);
+                    localStorage.setItem('whale_v8_memories', JSON.stringify(arr));
+                    renderMemories();
+                  };
+
+                  window.addWhitelistPkg = function(pkg) {
+                    const el = document.getElementById('cfg-music-whitelist');
+                    const parts = el.value.split(/[,\s\n]+/).map(s => s.trim()).filter(Boolean);
+                    if (!parts.includes(pkg)) parts.push(pkg);
+                    el.value = parts.join(', ');
+                    saveAllConfig(false);
+                  };
+
+                  function buildExportPresetJson() {
+                    return JSON.stringify({
+                      charName: document.getElementById('cfg-char-name').value.trim() || '大肥鱼',
+                      userName: document.getElementById('cfg-user-name').value.trim() || '主人',
+                      thinkingBudget: parseInt(document.getElementById('st-thinking').value, 10),
+                      temperature: parseFloat(document.getElementById('st-temp').value) || 0.85,
+                      maxTokens: parseInt(document.getElementById('st-max-tokens').value, 10) || 160,
+                      entries: currentEntries,
+                      memories: getMemories()
+                    }, null, 2);
+                  }
+
+                  function applyImportedPresetObj(obj) {
+                    if (Array.isArray(obj.entries)) {
+                      currentEntries = obj.entries;
+                      renderTavernEntries();
+                    }
+                    if (typeof obj.charName === 'string' && obj.charName.trim()) document.getElementById('cfg-char-name').value = obj.charName.trim();
+                    if (typeof obj.userName === 'string' && obj.userName.trim()) document.getElementById('cfg-user-name').value = obj.userName.trim();
+                    if (typeof obj.thinkingBudget === 'number') document.getElementById('st-thinking').value = String(obj.thinkingBudget);
+                    if (typeof obj.temperature === 'number') document.getElementById('st-temp').value = String(obj.temperature);
+                    if (typeof obj.maxTokens === 'number') document.getElementById('st-max-tokens').value = String(obj.maxTokens);
+                    if (Array.isArray(obj.memories)) {
+                      localStorage.setItem('whale_v8_memories', JSON.stringify(obj.memories));
+                      renderMemories();
+                    }
+                    saveAllConfig(true);
+                  }
+
+                  window.exportPresetFile = function() {
+                    const jsonStr = buildExportPresetJson();
+                    const charName = (document.getElementById('cfg-char-name').value.trim() || 'whale').replace(/[^\w\u4e00-\u9fa5-]/g, '_');
+                    if (window.MainBridge && window.MainBridge.exportPresetToFile) {
+                      window.MainBridge.exportPresetToFile(jsonStr, `${charName}_preset_v8.json`);
+                    }
+                  };
+
+                  window.importPresetFile = function() {
+                    if (window.MainBridge && window.MainBridge.importPresetFromFile) {
+                      window.MainBridge.importPresetFromFile();
+                    }
+                  };
+
+                  window.onNativePresetImported = function(b64) {
+                    try {
+                      const bin = atob(b64);
+                      const bytes = new Uint8Array(bin.length);
+                      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                      const text = new TextDecoder('utf-8').decode(bytes);
+                      const obj = JSON.parse(text);
+                      applyImportedPresetObj(obj);
+                    } catch (e) {
+                      alert('预设 JSON 解析失败：' + e.message);
+                    }
+                  };
+
+                  window.openJsonModal = function(mode) {
+                    modalMode = mode;
+                    const m = document.getElementById('json-modal');
+                    const ta = document.getElementById('modal-textarea');
+                    const title = document.getElementById('modal-title');
+                    const btn = document.getElementById('modal-confirm-btn');
+                    if (mode === 'export') {
+                      title.textContent = '📤 复制预设 JSON';
+                      ta.value = buildExportPresetJson();
+                      btn.textContent = '📋 一键复制到剪贴板';
+                    } else {
+                      title.textContent = '📥 粘贴预设 JSON 导入';
+                      ta.value = '';
+                      ta.placeholder = '在此粘贴完整的 JSON 预设内容...';
+                      btn.textContent = '✅ 确认导入并生效';
+                    }
+                    m.style.display = 'flex';
+                  };
+
+                  window.onModalConfirm = function() {
+                    const ta = document.getElementById('modal-textarea');
+                    if (modalMode === 'export') {
+                      if (window.MainBridge && window.MainBridge.copyTextToClipboard) {
+                        window.MainBridge.copyTextToClipboard(ta.value);
+                      }
+                      document.getElementById('json-modal').style.display = 'none';
+                    } else {
+                      try {
+                        const obj = JSON.parse(ta.value.trim());
+                        document.getElementById('json-modal').style.display = 'none';
+                        applyImportedPresetObj(obj);
+                      } catch (e) {
+                        alert('JSON 格式错误：' + e.message);
+                      }
+                    }
+                  };
 
                   window.onCustomSpriteChanged = function() {
                     if (!window.MainBridge) return;
@@ -2907,18 +3842,14 @@ jobs:
                     const idleImg = document.getElementById('prev-idle-img');
                     const talkImg = document.getElementById('prev-talk-img');
                     const topAvatar = document.getElementById('top-avatar-img');
-
                     if (hasIdle) {
                       const url = 'https://appassets.androidplatform.net/custom_sprites/custom_idle.dat?t=' + ts;
-                      idleImg.src = url;
-                      topAvatar.src = url;
+                      idleImg.src = url; topAvatar.src = url;
                       document.getElementById('lbl-idle-status').textContent = '✅ 已启用自定义贴图';
                     } else {
-                      idleImg.src = 'whale-official-icon.png';
-                      topAvatar.src = 'whale-official-icon.png';
+                      idleImg.src = 'whale-official-icon.png'; topAvatar.src = 'whale-official-icon.png';
                       document.getElementById('lbl-idle-status').textContent = '当前：默认大肥鱼';
                     }
-
                     if (hasTalk) {
                       talkImg.src = 'https://appassets.androidplatform.net/custom_sprites/custom_talk.dat?t=' + ts;
                       document.getElementById('lbl-talk-status').textContent = '✅ 已启用说话差分图';
@@ -2947,20 +3878,9 @@ jobs:
                     });
                   }
 
-                  window.toggleEntry = function(idx, checked) {
-                    currentEntries[idx].enabled = checked;
-                    saveAllConfig(false);
-                  };
-
-                  window.updateEntryContent = function(idx, val) {
-                    currentEntries[idx].content = val;
-                    saveAllConfig(false);
-                  };
-
-                  window.onSizeSliderChange = function(val) {
-                    document.getElementById('lbl-size').textContent = val + ' dp';
-                    saveAllConfig(false);
-                  };
+                  window.toggleEntry = function(idx, checked) { currentEntries[idx].enabled = checked; saveAllConfig(false); };
+                  window.updateEntryContent = function(idx, val) { currentEntries[idx].content = val; saveAllConfig(false); };
+                  window.onSizeSliderChange = function(val) { document.getElementById('lbl-size').textContent = val + ' dp'; saveAllConfig(false); };
 
                   function switchProviderTab(provider) {
                     currentProvider = provider;
@@ -2988,17 +3908,14 @@ jobs:
                         const res = await fetch(`${base}/models?pageSize=100&key=${encodeURIComponent(key)}`);
                         if (!res.ok) throw new Error('HTTP ' + res.status);
                         const data = await res.json();
-                        const models = (data.models || []).filter(m =>
-                          Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent')
-                        );
-                        if (models.length === 0) throw new Error('未找到可用模型');
+                        const models = (data.models || []).filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'));
+                        if (!models.length) throw new Error('未找到可用模型');
                         const sel = document.getElementById('sel-gemini-models');
                         sel.innerHTML = '';
                         models.forEach(m => {
                           const id = (m.name || '').replace(/^models\//, '');
                           const opt = document.createElement('option');
-                          opt.value = id;
-                          opt.textContent = m.displayName ? `${id} (${m.displayName})` : id;
+                          opt.value = id; opt.textContent = m.displayName ? `${id} (${m.displayName})` : id;
                           sel.appendChild(opt);
                         });
                         sel.selectedIndex = 0;
@@ -3009,21 +3926,17 @@ jobs:
                         const key = document.getElementById('cfg-api-key').value.trim();
                         const base = (document.getElementById('cfg-base-url').value.trim() || DEFAULT_CFG.baseUrl).replace(/\/$/, '');
                         if (!key) { showConnectStatus('❌ 请先填写 API Key', true); return; }
-                        const res = await fetch(`${base}/models`, {
-                          method: 'GET',
-                          headers: { 'Authorization': `Bearer ${key}` }
-                        });
+                        const res = await fetch(`${base}/models`, { method: 'GET', headers: { 'Authorization': `Bearer ${key}` } });
                         if (!res.ok) throw new Error('HTTP ' + res.status);
                         const data = await res.json();
                         const list = Array.isArray(data.data) ? data.data : (Array.isArray(data.models) ? data.models : []);
-                        if (list.length === 0) throw new Error('模型列表为空');
+                        if (!list.length) throw new Error('模型列表为空');
                         const sel = document.getElementById('sel-openai-models');
                         sel.innerHTML = '';
                         list.forEach(item => {
                           const id = item.id || item.name || String(item);
                           const opt = document.createElement('option');
-                          opt.value = id;
-                          opt.textContent = id;
+                          opt.value = id; opt.textContent = id;
                           sel.appendChild(opt);
                         });
                         sel.selectedIndex = 0;
@@ -3035,34 +3948,6 @@ jobs:
                       showConnectStatus(`❌ 拉取失败 (${err.message})`, true);
                     }
                   }
-
-                  window.exportTavernPreset = function() {
-                    const presetJson = JSON.stringify({
-                      thinkingBudget: parseInt(document.getElementById('st-thinking').value, 10),
-                      temperature: parseFloat(document.getElementById('st-temp').value) || 0.85,
-                      maxTokens: parseInt(document.getElementById('st-max-tokens').value, 10) || 140,
-                      entries: currentEntries
-                    }, null, 2);
-                    prompt('复制下方酒馆预设 JSON 进行备份或分享：', presetJson);
-                  };
-
-                  window.importTavernPreset = function() {
-                    const raw = prompt('请粘贴酒馆预设 JSON：');
-                    if (!raw) return;
-                    try {
-                      const obj = JSON.parse(raw);
-                      if (Array.isArray(obj.entries)) {
-                        currentEntries = obj.entries;
-                        renderTavernEntries();
-                      }
-                      if (typeof obj.thinkingBudget === 'number') document.getElementById('st-thinking').value = String(obj.thinkingBudget);
-                      if (typeof obj.temperature === 'number') document.getElementById('st-temp').value = String(obj.temperature);
-                      if (typeof obj.maxTokens === 'number') document.getElementById('st-max-tokens').value = String(obj.maxTokens);
-                      saveAllConfig(true);
-                    } catch (e) {
-                      alert('JSON 格式不正确：' + e.message);
-                    }
-                  };
 
                   function loadForm() {
                     let cfg = Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem('whale_v6_cfg') || '{}'));
@@ -3079,21 +3964,25 @@ jobs:
                     document.getElementById('cfg-city').value = cfg.cityFallback || 'Shanghai';
                     document.getElementById('cfg-char-name').value = cfg.charName || '大肥鱼';
                     document.getElementById('cfg-user-name').value = cfg.userName || '主人';
+                    document.getElementById('cfg-music-whitelist').value = cfg.musicWhitelist || 'com.salt.music';
+                    document.getElementById('cfg-song-cooldown').value = String(cfg.songCooldownSec || 120);
+                    document.getElementById('cfg-enable-actions').checked = cfg.enableActions !== false;
 
                     const preset = cfg.tavernPreset || DEFAULT_TAVERN_PRESET;
                     document.getElementById('st-thinking').value = String(preset.thinkingBudget ?? 0);
                     document.getElementById('st-temp').value = String(preset.temperature ?? 0.85);
-                    document.getElementById('st-max-tokens').value = String(preset.maxTokens ?? 140);
-                    if (Array.isArray(preset.entries) && preset.entries.length > 0) {
-                      currentEntries = preset.entries;
-                    }
+                    document.getElementById('st-max-tokens').value = String(preset.maxTokens ?? 160);
+                    if (Array.isArray(preset.entries) && preset.entries.length > 0) currentEntries = preset.entries;
                     renderTavernEntries();
+                    renderMemories();
                     switchProviderTab(cfg.apiProvider || 'gemini');
                     onCustomSpriteChanged();
                   }
 
                   function saveAllConfig(showAlert) {
                     const sizeDp = parseInt(document.getElementById('cfg-size').value, 10) || 58;
+                    const whitelist = document.getElementById('cfg-music-whitelist').value.trim() || 'com.salt.music';
+                    const cooldownSec = Math.max(10, parseInt(document.getElementById('cfg-song-cooldown').value, 10) || 120);
                     const cfg = {
                       apiProvider: currentProvider,
                       geminiBaseUrl: document.getElementById('cfg-gemini-url').value.trim() || DEFAULT_CFG.geminiBaseUrl,
@@ -3108,28 +3997,27 @@ jobs:
                       cityFallback: document.getElementById('cfg-city').value.trim() || 'Shanghai',
                       charName: document.getElementById('cfg-char-name').value.trim() || '大肥鱼',
                       userName: document.getElementById('cfg-user-name').value.trim() || '主人',
+                      musicWhitelist: whitelist,
+                      songCooldownSec: cooldownSec,
+                      enableActions: document.getElementById('cfg-enable-actions').checked,
                       tavernPreset: {
                         thinkingBudget: parseInt(document.getElementById('st-thinking').value, 10),
                         temperature: parseFloat(document.getElementById('st-temp').value) || 0.85,
                         topP: 0.95,
-                        maxTokens: parseInt(document.getElementById('st-max-tokens').value, 10) || 140,
+                        maxTokens: parseInt(document.getElementById('st-max-tokens').value, 10) || 160,
                         contextDepth: 6,
                         entries: currentEntries
                       }
                     };
                     localStorage.setItem('whale_v6_cfg', JSON.stringify(cfg));
                     if (window.MainBridge) {
-                      window.MainBridge.notifyConfigSaved(sizeDp);
+                      window.MainBridge.notifyConfigSaved(sizeDp, whitelist, cooldownSec);
                     }
-                    if (showAlert) {
-                      alert('设置已保存并实时同步给悬浮桌宠！');
-                    }
+                    if (showAlert) alert('✅ 设置已保存并实时同步给悬浮球！');
                   }
 
                   function toggleSysAudio() {
-                    if (window.MainBridge) {
-                      window.MainBridge.toggleSystemAudioCapture(false);
-                    }
+                    if (window.MainBridge) window.MainBridge.toggleSystemAudioCapture(false);
                   }
 
                   window.refreshDashboard = function() {
@@ -3140,16 +4028,13 @@ jobs:
                     const btn = document.getElementById('btn-toggle-overlay');
 
                     if (running) {
-                      badge.textContent = '● 悬浮球运行中';
-                      badge.style.color = '#4ade80';
+                      badge.textContent = '● 悬浮球运行中'; badge.style.color = '#4ade80';
                       btn.textContent = '关闭全局悬浮桌宠';
                     } else if (!canDraw) {
-                      badge.textContent = '○ 需授予悬浮窗权限';
-                      badge.style.color = '#facc15';
+                      badge.textContent = '○ 需授予悬浮窗权限'; badge.style.color = '#facc15';
                       btn.textContent = '点击授予悬浮窗权限并启动';
                     } else {
-                      badge.textContent = '○ 未启动';
-                      badge.style.color = '#94a3b8';
+                      badge.textContent = '○ 未启动'; badge.style.color = '#94a3b8';
                       btn.textContent = '启动全局悬浮桌宠';
                     }
 
@@ -3157,15 +4042,38 @@ jobs:
                       const st = JSON.parse(window.MainBridge.getDeviceStatusJson() || '{}');
                       document.getElementById('st-battery').textContent = `${st.batteryPct ?? '--'}% (${st.isCharging ? '⚡充电中' : '未充电'} · ${st.batteryTempC ?? '--'}°C)`;
                       document.getElementById('st-alarm').textContent = st.nextAlarm || '未设置';
-                      document.getElementById('st-calls-sms').textContent = st.notificationAccess
+
+                      const notifBtn = document.getElementById('btn-notif-perm');
+                      if (st.notificationGranted && st.notificationAccess) {
+                        document.getElementById('st-notif').textContent = '✅ 已授权并运行';
+                        notifBtn.textContent = '✅ 通知监听已就绪';
+                      } else if (st.notificationGranted) {
+                        document.getElementById('st-notif').textContent = '🔄 已授权，自动重连中...';
+                        notifBtn.textContent = '🔄 通知自动重连中';
+                      } else {
+                        document.getElementById('st-notif').textContent = '⚠️ 未授权';
+                        notifBtn.textContent = '🔔 授权通知/识曲';
+                      }
+
+                      const szBtn = document.getElementById('btn-shizuku');
+                      document.getElementById('st-shizuku').textContent = st.shizukuStatus || '未检测到';
+                      if (st.shizukuGranted) {
+                        szBtn.textContent = '✅ Shizuku 已授权';
+                      } else if (st.shizukuAvailable) {
+                        szBtn.textContent = '⚡ 点击授权 Shizuku';
+                      } else {
+                        szBtn.textContent = '⚡ 启动 Shizuku 服务';
+                      }
+
+                      document.getElementById('st-calls-sms').textContent = st.notificationGranted
                         ? `${st.missedCalls || 0} 个未接 / ${st.unreadSms || 0} 条短信`
                         : '请点击上方授权通知监听';
-                      document.getElementById('st-social').textContent = st.notificationAccess
+                      document.getElementById('st-social').textContent = st.notificationGranted
                         ? `${st.unreadSocial || 0} 条未读消息`
                         : '未授权通知监听';
                       document.getElementById('st-song').textContent = st.currentSong
                         ? `${st.currentSong} ${st.musicApp ? '(' + st.musicApp + ')' : ''}`
-                        : '暂无音乐播放';
+                        : '暂无白名单音乐播放';
                     } catch (_) {}
                   };
 
@@ -3176,7 +4084,7 @@ jobs:
               </body>
               </html>
               """).lstrip())
-          print("WhaleCompanion v7 generated successfully.")
+          print("WhaleCompanion v8 generated successfully.")
           PY
 
       - name: 6. 安装匹配的 Gradle 8.5 环境
@@ -3192,6 +4100,6 @@ jobs:
       - name: 8. 上传编译好的安卓 APK 安装包
         uses: actions/upload-artifact@v4
         with:
-          name: DeepSeek-Whale-Android-APK-v7
+          name: DeepSeek-Whale-Android-APK-v8
           path: /tmp/whale-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
