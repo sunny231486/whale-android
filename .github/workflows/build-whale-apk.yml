@@ -15,7 +15,7 @@
 # 6. 【长期记忆本 + 历史对话面板】：支持手动/AI自动写入长期记忆并持久注入上下文，浮窗内置可滚动历史记录抽屉。
 # ==============================================================================
 
-name: Build DeepSeek Whale Android APK v8
+name: Build DeepSeek Whale Android APK v9
 
 on:
   push:
@@ -94,7 +94,7 @@ jobs:
 
           # 1. Gradle 配置
           with open(os.path.join(base, 'settings.gradle'), 'w', encoding='utf-8') as f:
-              f.write("rootProject.name = 'WhaleCompanionV8'\ninclude ':app'\n")
+              f.write("rootProject.name = 'WhaleCompanionV9'\ninclude ':app'\n")
 
           with open(os.path.join(base, 'build.gradle'), 'w', encoding='utf-8') as f:
               f.write(textwrap.dedent(r"""
@@ -130,8 +130,8 @@ jobs:
                       applicationId "com.takboo.whalecompanion"
                       minSdk 29
                       targetSdk 34
-                      versionCode 8
-                      versionName "8.0.0-global-ai-assistant"
+                      versionCode 9
+                      versionName "9.0.0-daily-polish"
                   }
                   buildTypes {
                       debug {
@@ -379,8 +379,11 @@ jobs:
               import android.app.Notification;
               import android.content.BroadcastReceiver;
               import android.content.ComponentName;
+              import android.content.ClipData;
+              import android.content.ClipboardManager;
               import android.content.Context;
               import android.content.Intent;
+              import android.content.res.Configuration;
               import android.content.IntentFilter;
               import android.content.SharedPreferences;
               import android.media.MediaMetadata;
@@ -408,6 +411,7 @@ jobs:
                   public static volatile String currentSongArtist = "";
                   public static volatile String currentMusicApp = "";
                   private static String lastNotifiedSong = "";
+                  private static String pendingSong = "";
                   private static long lastSongNotifyTimeMs = 0L;
 
                   private MediaSessionManager mediaSessionManager;
@@ -443,7 +447,7 @@ jobs:
 
                   public static int getSongCooldownSec(Context ctx) {
                       SharedPreferences sp = ctx.getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
-                      return Math.max(10, sp.getInt("songCooldownSec", 120));
+                      return Math.max(0, sp.getInt("songCooldownSec", 15));
                   }
 
                   public static boolean controlMediaPlayback(Context ctx, String action) {
@@ -562,7 +566,7 @@ jobs:
                           if (!isPackageWhitelisted(this, pkg)) return false;
 
                           PlaybackState ps = mc.getPlaybackState();
-                          boolean isPlaying = ps != null && ps.getState() == PlaybackState.STATE_PLAYING;
+                          boolean isPlaying = ps != null && (ps.getState() == PlaybackState.STATE_PLAYING || ps.getState() == PlaybackState.STATE_BUFFERING);
                           if (!isPlaying) return false;
 
                           MediaMetadata meta = mc.getMetadata();
@@ -594,24 +598,28 @@ jobs:
                       currentSongArtist = artist != null ? artist : "";
                       currentMusicApp = pkg != null ? pkg : "";
                       final String fullSong = currentSongTitle + (currentSongArtist.isEmpty() ? "" : " - " + currentSongArtist);
-                      if (fullSong.equals(lastNotifiedSong)) return;
+                      // 若已是刚点评过的歌，或正在等待防抖触发的同一首歌，直接返回（避免播放器每秒刷新进度反复重置定时器！）
+                      if (fullSong.equals(lastNotifiedSong) || fullSong.equals(pendingSong)) return;
 
-                      // 3 秒防抖：确保连续切歌时只触发最终停留的那一首，且遵守冷却时间
+                      pendingSong = fullSong;
                       if (pendingSongRunnable != null) {
                           debounceHandler.removeCallbacks(pendingSongRunnable);
                       }
                       pendingSongRunnable = () -> {
-                          long now = System.currentTimeMillis();
-                          long cooldownMs = getSongCooldownSec(WhaleNotificationListener.this) * 1000L;
-                          if (fullSong.equals(lastNotifiedSong)) return;
-                          lastNotifiedSong = fullSong;
-                          if (now - lastSongNotifyTimeMs < cooldownMs) return;
-                          lastSongNotifyTimeMs = now;
+                          synchronized (WhaleNotificationListener.this) {
+                              pendingSong = "";
+                              long now = System.currentTimeMillis();
+                              long cooldownMs = getSongCooldownSec(WhaleNotificationListener.this) * 1000L;
+                              if (fullSong.equals(lastNotifiedSong)) return;
+                              if (cooldownMs > 0 && (now - lastSongNotifyTimeMs < cooldownMs)) return;
+                              lastNotifiedSong = fullSong;
+                              lastSongNotifyTimeMs = now;
+                          }
                           if (FloatingOverlayService.instance != null) {
                               FloatingOverlayService.instance.notifySongChanged(fullSong);
                           }
                       };
-                      debounceHandler.postDelayed(pendingSongRunnable, 3000);
+                      debounceHandler.postDelayed(pendingSongRunnable, 1500);
                   }
 
                   @Override
@@ -675,6 +683,10 @@ jobs:
                                           }
                                       }
                                   } catch (Exception ignored) {}
+                                  if (!title.isEmpty() && !title.equalsIgnoreCase("Salt Player") && !title.equals("椒盐音乐")) {
+                                      updateSongState(title, !text.isEmpty() ? text : subText, pkg);
+                                      foundWhitelistedPlaying = true;
+                                  }
                                   continue;
                               }
 
@@ -1051,7 +1063,9 @@ jobs:
               import android.os.Bundle;
               import android.os.Handler;
               import android.os.Looper;
+              import android.util.Base64;
               import android.util.DisplayMetrics;
+              import java.nio.charset.StandardCharsets;
               import java.nio.ByteBuffer;
 
               public class ScreenCaptureActivity extends Activity {
@@ -1414,6 +1428,9 @@ jobs:
 
                   private int petSizeDp = 58;
                   private boolean isPeekMode = true;
+                  private boolean isLandscapeDnd = false;
+                  private boolean enableFullscreenDnd = true;
+                  private boolean manualDnd = false;
                   private String dockEdge = "right";
                   private int anchorX = 900;
                   private int anchorY = 600;
@@ -1496,6 +1513,8 @@ jobs:
                       SharedPreferences sp = getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
                       petSizeDp = sp.getInt("petSizeDp", 58);
                       dockEdge = sp.getString("dockEdge", "right");
+                      enableFullscreenDnd = sp.getBoolean("enableFullscreenDnd", true);
+                      manualDnd = sp.getBoolean("manualDnd", false);
 
                       IntentFilter filter = new IntentFilter();
                       filter.addAction(Intent.ACTION_SCREEN_OFF);
@@ -1649,6 +1668,32 @@ jobs:
                       applyPetGeometry();
                       petWebView.loadUrl("https://appassets.androidplatform.net/assets/www/pet-sprite.html");
                       panelWebView.loadUrl("https://appassets.androidplatform.net/assets/www/pet-panel.html");
+                      isLandscapeDnd = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+                      applyDndVisualAndNotify();
+                  }
+
+                  @Override
+                  public void onConfigurationChanged(Configuration newConfig) {
+                      super.onConfigurationChanged(newConfig);
+                      isLandscapeDnd = (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE);
+                      applyPetGeometry();
+                      applyDndVisualAndNotify();
+                  }
+
+                  public boolean isDndActive() {
+                      return manualDnd || (enableFullscreenDnd && isLandscapeDnd);
+                  }
+
+                  public void applyDndVisualAndNotify() {
+                      if (petWebView == null) return;
+                      petWebView.post(() -> {
+                          boolean active = isDndActive();
+                          petWebView.setAlpha(active ? 0.28f : 1.0f);
+                          if (active && panelWebView != null && panelWebView.getVisibility() == View.VISIBLE) {
+                              hidePanelAndCollapseToPeek();
+                          }
+                          evalPanelJs("window.onDndStateChanged && window.onDndStateChanged(" + active + ");");
+                      });
                   }
 
                   private void onPetClickedNatively() {
@@ -1822,8 +1867,12 @@ jobs:
                   public void updatePetSizeFromSettings(final int newSizeDp) {
                       if (petWebView == null) return;
                       petWebView.post(() -> {
+                          SharedPreferences sp = getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
                           petSizeDp = Math.max(32, Math.min(160, newSizeDp));
-                          getSharedPreferences("whale_native_prefs", MODE_PRIVATE).edit().putInt("petSizeDp", petSizeDp).apply();
+                          enableFullscreenDnd = sp.getBoolean("enableFullscreenDnd", true);
+                          manualDnd = sp.getBoolean("manualDnd", false);
+                          sp.edit().putInt("petSizeDp", petSizeDp).apply();
+                          applyDndVisualAndNotify();
                           applyPetGeometry();
                           if (panelWebView != null && panelWebView.getVisibility() == View.VISIBLE) {
                               repositionPanelBesidePet();
@@ -1838,6 +1887,7 @@ jobs:
                   }
 
                   public void notifyInstantEvent(String type, String defaultLine) {
+                      if (isDndActive()) return;
                       String safe = defaultLine.replace("'", "\\'");
                       if (petWebView != null) {
                           petWebView.post(() -> {
@@ -1851,6 +1901,7 @@ jobs:
                   }
 
                   public void notifySongChanged(String songInfo) {
+                      if (isDndActive()) return;
                       String safe = songInfo.replace("'", "\\'");
                       evalPetJs("window.setPetMood && window.setPetMood('dancing');");
                       evalPanelJs("window.onNativeSongChanged && window.onNativeSongChanged('" + safe + "');");
@@ -1936,6 +1987,38 @@ jobs:
                       @JavascriptInterface
                       public String executeAssistantAction(String actionType, String arg1, String arg2) {
                           return AssistantActionHelper.executeAction(FloatingOverlayService.this, actionType, arg1, arg2);
+                      }
+
+                      @JavascriptInterface
+                      public void requestClipboardText() {
+                          if (panelWebView == null || windowManager == null) return;
+                          panelWebView.post(() -> {
+                              boolean wasNotFocusable = (panelParams.flags & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) != 0;
+                              if (wasNotFocusable) {
+                                  panelParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                                  windowManager.updateViewLayout(panelWebView, panelParams);
+                              }
+                              panelWebView.requestFocus();
+                              panelWebView.postDelayed(() -> {
+                                  String clipStr = "";
+                                  try {
+                                      ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                                      if (cm != null && cm.hasPrimaryClip()) {
+                                          ClipData cd = cm.getPrimaryClip();
+                                          if (cd != null && cd.getItemCount() > 0) {
+                                              CharSequence cs = cd.getItemAt(0).coerceToText(FloatingOverlayService.this);
+                                              if (cs != null) clipStr = cs.toString().trim();
+                                          }
+                                      }
+                                  } catch (Exception ignored) {}
+                                  if (wasNotFocusable) {
+                                      panelParams.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                                      windowManager.updateViewLayout(panelWebView, panelParams);
+                                  }
+                                  String b64 = Base64.encodeToString(clipStr.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+                                  evalPanelJs("window.onClipboardTextReady && window.onClipboardTextReady('" + b64 + "');");
+                              }, 140);
+                          });
                       }
 
                       @JavascriptInterface
@@ -2396,11 +2479,13 @@ jobs:
                       }
 
                       @JavascriptInterface
-                      public void notifyConfigSaved(int newSizeDp, String musicWhitelist, int songCooldownSec) {
+                      public void notifyConfigSaved(int newSizeDp, String musicWhitelist, int songCooldownSec, boolean enableFullscreenDnd, boolean manualDnd) {
                           SharedPreferences sp = getSharedPreferences("whale_native_prefs", MODE_PRIVATE);
                           sp.edit()
                                   .putString("musicWhitelist", (musicWhitelist != null && !musicWhitelist.trim().isEmpty()) ? musicWhitelist.trim() : "com.salt.music")
-                                  .putInt("songCooldownSec", Math.max(10, songCooldownSec))
+                                  .putInt("songCooldownSec", Math.max(0, songCooldownSec))
+                                  .putBoolean("enableFullscreenDnd", enableFullscreenDnd)
+                                  .putBoolean("manualDnd", manualDnd)
                                   .apply();
                           if (FloatingOverlayService.instance != null) {
                               FloatingOverlayService.instance.updatePetSizeFromSettings(newSizeDp);
@@ -2614,6 +2699,17 @@ jobs:
                     background: rgba(6, 78, 59, 0.9); border: 1px solid rgba(52, 211, 153, 0.5);
                     border-radius: 10px; padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
                   }
+                  #clip-box {
+                    display: none; background: rgba(15, 23, 42, 0.96); color: #e2e8f0;
+                    border: 1.5px solid #38bdf8; border-radius: 14px; padding: 8px 10px;
+                    font-size: 11.5px; box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+                  }
+                  .clip-preview {
+                    color: #94a3b8; font-size: 11px; max-height: 52px; overflow-y: auto;
+                    background: rgba(30, 41, 59, 0.8); padding: 5px 7px; border-radius: 8px;
+                    margin: 5px 0 7px; word-break: break-word;
+                  }
+                  .clip-actions { display: flex; gap: 5px; flex-wrap: wrap; }
                   #history-box {
                     display: none; flex: 1; overflow-y: auto;
                     background: rgba(15, 23, 42, 0.96); color: #e2e8f0;
@@ -2666,6 +2762,20 @@ jobs:
                   <div id="action-toast"></div>
                   <div id="bubble-box">噗通！你的全局 AI 伴侣已就位～</div>
 
+                  <div id="clip-box">
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-weight:600;color:#38bdf8;">
+                      <span>📋 剪贴板快捷问</span>
+                      <span style="cursor:pointer;color:#94a3b8;" onclick="closeClipBox()">返回</span>
+                    </div>
+                    <div class="clip-preview" id="clip-preview-text"></div>
+                    <div class="clip-actions">
+                      <button class="pill-btn" onclick="askWithClip('translate')">🌐 翻译</button>
+                      <button class="pill-btn" onclick="askWithClip('explain')">💡 解释</button>
+                      <button class="pill-btn" onclick="askWithClip('polish')">✍️ 润色</button>
+                      <button class="pill-btn" onclick="askWithClip('chat')">💬 聊聊</button>
+                    </div>
+                  </div>
+
                   <div id="history-box">
                     <div class="hist-head">
                       <span>📜 历史对话记录</span>
@@ -2678,10 +2788,11 @@ jobs:
                   </div>
 
                   <div class="btn-row" id="action-row">
-                    <button class="pill-btn" onclick="startVoice()">🎤</button>
-                    <button class="pill-btn" onclick="openInputBar()">💬 对话</button>
-                    <button class="pill-btn" onclick="triggerScreenVision('')">👁️ 看屏</button>
-                    <button class="pill-btn" onclick="toggleHistoryView(true)">📜</button>
+                    <button class="pill-btn" onclick="startVoice()" title="语音">🎤</button>
+                    <button class="pill-btn" onclick="openInputBar()">💬 聊</button>
+                    <button class="pill-btn" onclick="triggerScreenVision('')" title="看屏">👁️</button>
+                    <button class="pill-btn" onclick="triggerClipboardAsk()" title="剪贴板快捷问">📋</button>
+                    <button class="pill-btn" onclick="toggleHistoryView(true)" title="历史记录">📜</button>
                     <button class="pill-btn close" id="btn-close-or-stop" onclick="onCloseOrStopClicked()" title="停止生成或收起">✕</button>
                   </div>
 
@@ -2781,7 +2892,7 @@ jobs:
                     userName: '主人',
                     charName: '大肥鱼',
                     musicWhitelist: 'com.salt.music',
-                    songCooldownSec: 120,
+                    songCooldownSec: 15,
                     enableActions: true,
                     tavernPreset: DEFAULT_TAVERN_PRESET
                   };
@@ -2790,8 +2901,10 @@ jobs:
                   let chatHistory = [];
                   let lastReplyText = '';
                   let isScreenOn = true;
+                  let isDndMode = false;
                   let isBusy = false;
                   let isHistoryOpen = false;
+                  let latestClipboardText = '';
                   let pendingVisionPrompt = '';
                   let currentAbortController = null;
                   let autoCollapseTimer = null;
@@ -3351,10 +3464,57 @@ jobs:
                   };
 
                   setInterval(() => {
-                    if (isScreenOn && !isBusy) window.triggerHalfHourContextChat(false);
+                    if (isScreenOn && !isDndMode && !isBusy) window.triggerHalfHourContextChat(false);
                   }, 30 * 60 * 1000);
 
                   window.onScreenStateChanged = function(on) { isScreenOn = Boolean(on); };
+                  window.onDndStateChanged = function(dnd) { isDndMode = Boolean(dnd); };
+
+                  function triggerClipboardAsk() {
+                    clearTimeout(autoCollapseTimer);
+                    if (isHistoryOpen) toggleHistoryView(false);
+                    if (window.OverlayBridge && window.OverlayBridge.requestClipboardText) {
+                      setBubbleText('📋 正在读取剪贴板...');
+                      window.OverlayBridge.requestClipboardText();
+                    }
+                  }
+
+                  window.onClipboardTextReady = function(b64) {
+                    try {
+                      const bin = atob(b64 || '');
+                      const bytes = new Uint8Array(bin.length);
+                      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                      latestClipboardText = new TextDecoder('utf-8').decode(bytes).trim();
+                    } catch (_) { latestClipboardText = ''; }
+                    if (!latestClipboardText) {
+                      setBubbleText('📋 剪贴板目前是空的，先复制一段文字再点我哦～');
+                      scheduleAutoCollapse(14000);
+                      return;
+                    }
+                    document.getElementById('bubble-box').style.display = 'none';
+                    document.getElementById('clip-box').style.display = 'block';
+                    document.getElementById('clip-preview-text').textContent = latestClipboardText.slice(0, 180) + (latestClipboardText.length > 180 ? '...' : '');
+                    if (window.OverlayBridge) window.OverlayBridge.resizePanelHeight(275, 190, false);
+                  };
+
+                  function closeClipBox() {
+                    document.getElementById('clip-box').style.display = 'none';
+                    document.getElementById('bubble-box').style.display = 'block';
+                    if (window.OverlayBridge) window.OverlayBridge.resizePanelHeight(260, 145, false);
+                    scheduleAutoCollapse(20000);
+                  }
+
+                  function askWithClip(mode) {
+                    const text = latestClipboardText;
+                    closeClipBox();
+                    if (!text) return;
+                    let prompt = text;
+                    if (mode === 'translate') prompt = '请把下面这段剪贴板内容自然翻译成中文（如果本身是中文就翻译成地道英文），直接给出译文即可：\n' + text;
+                    else if (mode === 'explain') prompt = '请用简明通俗的话帮我解释或总结下面这段内容：\n' + text;
+                    else if (mode === 'polish') prompt = '请帮我润色改写下面这段文字，让表达更自然顺畅：\n' + text;
+                    else prompt = '我刚复制了这段内容，你帮我看看聊聊：\n' + text;
+                    askWhaleWithTavernPreset(prompt, null);
+                  }
 
                   window.onNativeInstantEvent = function(type, defaultLine) {
                     if (!isScreenOn) return;
@@ -3393,7 +3553,7 @@ jobs:
               <head>
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                <title>大肥鱼全局 AI 助理 v8 · 控制台</title>
+                <title>大肥鱼全局 AI 助理 v9 · 控制台</title>
                 <style>
                   :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --mute: #94a3b8; }
                   * { box-sizing: border-box; }
@@ -3467,7 +3627,7 @@ jobs:
                 <div class="header">
                   <img id="top-avatar-img" src="whale-official-icon.png" onerror="this.style.display='none'" />
                   <div>
-                    <h2 style="margin:0; font-size:17px;">🐟 大肥鱼全局 AI 助理 v8</h2>
+                    <h2 style="margin:0; font-size:17px;">🐟 大肥鱼全局 AI 助理 v9</h2>
                     <p style="margin:3px 0 0; font-size:11.5px; color:var(--mute);">Shizuku + Common Intents · 看屏 · 白名单识曲 · 长期记忆 · 原生文件导入导出</p>
                   </div>
                 </div>
@@ -3508,7 +3668,7 @@ jobs:
                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:end;">
                     <div class="field" style="margin-bottom:0;">
                       <label><span>切歌点评冷却时间（秒）</span></label>
-                      <input type="number" id="cfg-song-cooldown" value="120" min="10" onchange="saveAllConfig(false)" />
+                      <input type="number" id="cfg-song-cooldown" value="15" min="0" onchange="saveAllConfig(false)" />
                     </div>
                     <div class="field" style="margin-bottom:0;">
                       <label style="align-items:center; gap:6px; justify-content:flex-start; color:#f8fafc; padding:8px 0;">
@@ -3516,6 +3676,16 @@ jobs:
                         <span>⚡ 启用 AI 动手能力（切歌/闹钟/开App/Shizuku）</span>
                       </label>
                     </div>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#f8fafc;">
+                      <input type="checkbox" id="cfg-fullscreen-dnd" checked style="width:auto;" onchange="saveAllConfig(false)" />
+                      <span>🎮 横屏/全屏自动免打扰</span>
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#f8fafc;">
+                      <input type="checkbox" id="cfg-manual-dnd" style="width:auto;" onchange="saveAllConfig(false)" />
+                      <span>🌙 手动静音免打扰</span>
+                    </label>
                   </div>
                 </div>
 
@@ -3687,7 +3857,7 @@ jobs:
                     userName: '主人',
                     charName: '大肥鱼',
                     musicWhitelist: 'com.salt.music',
-                    songCooldownSec: 120,
+                    songCooldownSec: 15,
                     enableActions: true,
                     tavernPreset: DEFAULT_TAVERN_PRESET
                   };
@@ -3965,8 +4135,10 @@ jobs:
                     document.getElementById('cfg-char-name').value = cfg.charName || '大肥鱼';
                     document.getElementById('cfg-user-name').value = cfg.userName || '主人';
                     document.getElementById('cfg-music-whitelist').value = cfg.musicWhitelist || 'com.salt.music';
-                    document.getElementById('cfg-song-cooldown').value = String(cfg.songCooldownSec || 120);
+                    document.getElementById('cfg-song-cooldown').value = String(cfg.songCooldownSec ?? 15);
                     document.getElementById('cfg-enable-actions').checked = cfg.enableActions !== false;
+                    document.getElementById('cfg-fullscreen-dnd').checked = cfg.enableFullscreenDnd !== false;
+                    document.getElementById('cfg-manual-dnd').checked = Boolean(cfg.manualDnd);
 
                     const preset = cfg.tavernPreset || DEFAULT_TAVERN_PRESET;
                     document.getElementById('st-thinking').value = String(preset.thinkingBudget ?? 0);
@@ -3982,7 +4154,7 @@ jobs:
                   function saveAllConfig(showAlert) {
                     const sizeDp = parseInt(document.getElementById('cfg-size').value, 10) || 58;
                     const whitelist = document.getElementById('cfg-music-whitelist').value.trim() || 'com.salt.music';
-                    const cooldownSec = Math.max(10, parseInt(document.getElementById('cfg-song-cooldown').value, 10) || 120);
+                    const cooldownSec = Math.max(0, parseInt(document.getElementById('cfg-song-cooldown').value, 10) || 0);
                     const cfg = {
                       apiProvider: currentProvider,
                       geminiBaseUrl: document.getElementById('cfg-gemini-url').value.trim() || DEFAULT_CFG.geminiBaseUrl,
@@ -4000,6 +4172,8 @@ jobs:
                       musicWhitelist: whitelist,
                       songCooldownSec: cooldownSec,
                       enableActions: document.getElementById('cfg-enable-actions').checked,
+                      enableFullscreenDnd: document.getElementById('cfg-fullscreen-dnd').checked,
+                      manualDnd: document.getElementById('cfg-manual-dnd').checked,
                       tavernPreset: {
                         thinkingBudget: parseInt(document.getElementById('st-thinking').value, 10),
                         temperature: parseFloat(document.getElementById('st-temp').value) || 0.85,
@@ -4011,7 +4185,13 @@ jobs:
                     };
                     localStorage.setItem('whale_v6_cfg', JSON.stringify(cfg));
                     if (window.MainBridge) {
-                      window.MainBridge.notifyConfigSaved(sizeDp, whitelist, cooldownSec);
+                      window.MainBridge.notifyConfigSaved(
+                        sizeDp,
+                        whitelist,
+                        cooldownSec,
+                        document.getElementById('cfg-fullscreen-dnd').checked,
+                        document.getElementById('cfg-manual-dnd').checked
+                      );
                     }
                     if (showAlert) alert('✅ 设置已保存并实时同步给悬浮球！');
                   }
@@ -4100,6 +4280,6 @@ jobs:
       - name: 8. 上传编译好的安卓 APK 安装包
         uses: actions/upload-artifact@v4
         with:
-          name: DeepSeek-Whale-Android-APK-v8
+          name: DeepSeek-Whale-Android-APK-v9
           path: /tmp/whale-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
