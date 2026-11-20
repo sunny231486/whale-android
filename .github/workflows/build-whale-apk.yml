@@ -1391,7 +1391,12 @@ jobs:
               import android.provider.Settings;
               import android.speech.RecognitionListener;
               import android.speech.RecognizerIntent;
+              import android.content.ClipData;
+              import android.content.ClipboardManager;
+              import android.content.res.Configuration;
               import android.speech.SpeechRecognizer;
+              import android.util.Base64;
+              import java.nio.charset.StandardCharsets;
               import android.util.DisplayMetrics;
               import android.view.Gravity;
               import android.view.MotionEvent;
@@ -4280,6 +4285,6 @@ jobs:
       - name: 8. 上传编译好的安卓 APK 安装包
         uses: actions/upload-artifact@v4
         with:
-          name: DeepSeek-Whale-Android-APK-v9
+          name: DeepSeek-Whale-Android-APK-v9-fixed
           path: /tmp/whale-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
